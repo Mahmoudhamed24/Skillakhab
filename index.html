@@ -1,0 +1,1362 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+  <title>Skillak</title>
+  <link id="appIcon" rel="icon" type="image/png" href="skillak.png" />
+  <link id="appAppleIcon" rel="apple-touch-icon" href="skillak.png" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <meta name="theme-color" content="#0d6e75" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,700;0,900&family=Cairo:wght@400;600;700;900&display=swap"
+    rel="stylesheet" />
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+  <!-- LOADING -->
+  <div id="loadScreen">
+    <div class="ll">Skill<span>ak</span></div>
+    <div
+      style="margin-top:6px;font-size:.82rem;color:rgba(255,255,255,.35);letter-spacing:.15em;text-transform:uppercase;margin-bottom:24px">
+      منصة التعليم المباشر</div>
+    <div class="spin"></div>
+  </div>
+
+
+
+  <!-- NAVBAR -->
+  <nav class="navbar" id="mainNav">
+    <div class="logo" onclick="go('home');closeMobMenu()">Skill<span>ak</span></div>
+    <div class="nl">
+      <span class="nli" onclick="go('explore')">🔍 استكشف</span>
+      <span class="nli" id="nlD" onclick="go('dashboard')" style="display:none">📊 لوحتي</span>
+      <span class="nli" id="nlC" onclick="go('chat')" style="display:none">
+        💬 الرسائل <span id="msgBadge" class="hidden"
+          style="background:var(--red);color:#fff;border-radius:100px;padding:1px 6px;font-size:.66rem;font-weight:800;margin-right:4px;display:inline-block"></span>
+      </span>
+      <span class="nli" id="nlA" onclick="go('admin')" style="display:none">⚙️ الإدارة</span>
+    </div>
+    <div class="nav-r">
+      <div id="ngst" style="display:flex;align-items:center;gap:7px">
+        <button class="btn btn-gh btn-sm" onclick="openM('loginMod')">دخول</button>
+        <button class="btn btn-p btn-sm" onclick="openM('regMod')">ابدأ مجاناً</button>
+      </div>
+      <div id="nusr" style="display:none;align-items:center;gap:7px">
+        <div class="wchip" onclick="go('wallet')"><span>💳</span><span class="wa" id="nwAmt">$0.00</span></div>
+        <div class="nav-av" id="navAv" onclick="go('dashboard')">أ</div>
+        <button class="btn btn-gh btn-sm" id="desktopLogout" onclick="doLogout()">خروج</button>
+      </div>
+      <button class="hamburger" id="hamBtn" onclick="toggleMobMenu()" aria-label="القائمة">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- MOBILE MENU OVERLAY -->
+  <div class="mob-menu" id="mobMenu">
+    <div class="mob-menu-links">
+      <div class="mob-nli" onclick="go('home');closeMobMenu()"><span class="nli-ic">🏠</span>الرئيسية</div>
+      <div class="mob-nli" onclick="go('explore');closeMobMenu()"><span class="nli-ic">🔍</span>استكشاف المعلمين</div>
+      <div class="mob-nli" id="mobD" onclick="go('dashboard');closeMobMenu()" style="display:none"><span
+          class="nli-ic">📊</span>لوحة التحكم</div>
+      <div class="mob-nli" id="mobC" onclick="go('chat');closeMobMenu()" style="display:none"><span
+          class="nli-ic">💬</span>الرسائل</div>
+      <div class="mob-nli" id="mobW" onclick="go('wallet');closeMobMenu()" style="display:none"><span
+          class="nli-ic">💳</span>المحفظة</div>
+      <div class="mob-nli" id="mobEP" onclick="go('editProfile');closeMobMenu()" style="display:none"><span
+          class="nli-ic">✏️</span>تعديل الملف</div>
+      <div class="mob-nli" id="mobA" onclick="go('admin');closeMobMenu()" style="display:none"><span
+          class="nli-ic">⚙️</span>الإدارة</div>
+    </div>
+    <div class="mob-menu-divider"></div>
+    <div id="mobAuthGuest" class="mob-menu-auth">
+      <button class="btn btn-o btn-sm" style="flex:1" onclick="openM('loginMod');closeMobMenu()">تسجيل الدخول</button>
+      <button class="btn btn-p btn-sm" style="flex:1" onclick="openM('regMod');closeMobMenu()">ابدأ مجاناً</button>
+    </div>
+    <div id="mobAuthUser" style="display:none">
+      <button class="btn btn-d btn-sm" style="width:100%;margin-top:4px" onclick="doLogout();closeMobMenu()">🚪 تسجيل
+        الخروج</button>
+    </div>
+  </div>
+
+  <!-- BOTTOM NAVIGATION (mobile) -->
+  <div class="bottom-nav" id="bottomNav">
+    <div class="bottom-nav-inner">
+      <div class="bn-item active" id="bnHome" onclick="go('home');setBnActive('bnHome')">
+        <span class="bn-ic">🏠</span><span class="bn-lbl">الرئيسية</span>
+      </div>
+      <div class="bn-item" id="bnExplore" onclick="go('explore');setBnActive('bnExplore')">
+        <span class="bn-ic">🔍</span><span class="bn-lbl">استكشاف</span>
+      </div>
+      <div class="bn-item" id="bnChat" onclick="bnChatClick()">
+        <span class="bn-ic">💬</span><span class="bn-lbl">الرسائل</span>
+        <span class="bn-badge hidden" id="bnBadge"></span>
+      </div>
+      <div class="bn-item" id="bnDash" onclick="bnDashClick()">
+        <span class="bn-ic">📊</span><span class="bn-lbl">لوحتي</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCROLL TO TOP BUTTON -->
+  <button class="scroll-top" id="scrollTopBtn" onclick="window.scrollTo({top:0,behavior:'smooth'})"
+    title="للأعلى">↑</button>
+
+  <!-- ═══════════════ HOME ═══════════════ -->
+  <div id="page-home" class="page">
+    <section class="hero">
+      <div class="hg">
+        <div>
+          <div class="htag">✦ <span id="hTagCnt">1,200+</span> معلم متخصص نشط</div>
+          <h1 class="htitle">تعلّم أي مهارة<br />من شخص <em>حقيقي</em><br />في وقتك أنت</h1>
+          <p class="hsub">Skillak يربطك بمدرّسين متخصصين عبر جلسات فيديو مباشرة. احجز بالساعة، تواصل بالشات، وادفع
+            آمناً.</p>
+          <div class="hsearch">
+            <input type="text" id="heroSrch" placeholder="ابحث: Python، تصميم، Excel، إنجليزي..." />
+            <button onclick="doHeroSrch()">🔍 ابحث</button>
+          </div>
+          <div class="hstats">
+            <div>
+              <div class="hn" id="hST">—</div>
+              <div class="hl">معلم متخصص</div>
+            </div>
+            <div>
+              <div class="hn" id="hSS">—</div>
+              <div class="hl">جلسة مكتملة</div>
+            </div>
+            <div>
+              <div class="hn">40+</div>
+              <div class="hl">تخصص</div>
+            </div>
+            <div>
+              <div class="hn">4.9★</div>
+              <div class="hl">متوسط التقييم</div>
+            </div>
+          </div>
+        </div>
+        <div class="hfcwrap">
+          <div class="fwrap" id="heroFloatCards">
+            <!-- filled dynamically by renderHeroCards() -->
+            <div class="fc">
+              <div class="fcav" style="background:#fde68a;color:#78350f">س</div>
+              <div>
+                <div class="fcname">سارة محمد</div>
+                <div class="fcsub">Python & ML · $25/ساعة</div>
+                <div class="lb">
+                  <div class="ld"></div>متصلة الآن
+                </div>
+              </div>
+            </div>
+            <div class="fc">
+              <div class="fcav" style="background:#5eead4;color:#065f46">خ</div>
+              <div>
+                <div class="fcname">خالد العمري</div>
+                <div class="fcsub">Figma & UI/UX · $40/ساعة</div>
+                <div class="lb">
+                  <div class="ld"></div>متصل الآن
+                </div>
+              </div>
+            </div>
+            <div class="fc">
+              <div class="fcav" style="background:#c4b5fd;color:#4c1d95">ن</div>
+              <div>
+                <div class="fcname">نور الزهراء</div>
+                <div class="fcsub">Excel & Power BI · $30/ساعة</div>
+                <div class="lb">
+                  <div class="ld"></div>متصلة الآن
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section style="background:var(--white)">
+      <div class="sh center"><span class="sl">الفئات</span>
+        <h2 class="st">ماذا تريد أن <span>تتعلم؟</span></h2>
+      </div>
+      <div class="cg">
+        <div class="cc" onclick="fGo('برمجة')"><span class="ccic">💻</span>
+          <div class="ccn">البرمجة</div>
+          <div class="ccc">Python، JS، React...</div>
+        </div>
+        <div class="cc" onclick="fGo('تصميم')"><span class="ccic">🎨</span>
+          <div class="ccn">التصميم</div>
+          <div class="ccc">Figma، UI/UX...</div>
+        </div>
+        <div class="cc" onclick="fGo('لغات')"><span class="ccic">🗣️</span>
+          <div class="ccn">اللغات</div>
+          <div class="ccc">إنجليزي، فرنسي...</div>
+        </div>
+        <div class="cc" onclick="fGo('Excel')"><span class="ccic">📊</span>
+          <div class="ccn">Excel & بيانات</div>
+          <div class="ccc">Excel، Power BI...</div>
+        </div>
+        <div class="cc" onclick="fGo('تسويق')"><span class="ccic">📢</span>
+          <div class="ccn">التسويق</div>
+          <div class="ccc">SEO، إعلانات...</div>
+        </div>
+        <div class="cc" onclick="fGo('مونتاج')"><span class="ccic">🎬</span>
+          <div class="ccn">المونتاج</div>
+          <div class="ccc">Premiere، After Effects...</div>
+        </div>
+        <div class="cc" onclick="fGo('مهارات وظيفية')"><span class="ccic">💼</span>
+          <div class="ccn">مهارات وظيفية</div>
+          <div class="ccc">CV، مقابلات...</div>
+        </div>
+        <div class="cc" onclick="fGo('موسيقى')"><span class="ccic">🎵</span>
+          <div class="ccn">موسيقى وفنون</div>
+          <div class="ccc">عزف، تصوير...</div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="sh split">
+        <div><span class="sl">المعلمون</span>
+          <h2 class="st">أعلى <span>المعلمين</span> تقييماً</h2>
+        </div><button class="btn btn-o btn-sm" onclick="go('explore')">عرض الكل ←</button>
+      </div>
+      <div class="tgrid" id="featGrid">
+        <div style="grid-column:1/-1;text-align:center;padding:56px;color:var(--muted)">
+          <div class="spin spin-sm" style="margin:0 auto 12px"></div>جاري التحميل...
+        </div>
+      </div>
+    </section>
+
+    <section class="how">
+      <div class="sh center"><span class="sl" style="color:var(--amber)">كيف تعمل المنصة</span>
+        <h2 class="st" style="color:#fff">خمس خطوات <span style="color:var(--amber)">بسيطة</span></h2>
+      </div>
+      <div class="steps">
+        <div class="step">
+          <div class="stepn">01</div>
+          <div class="stepic">🔍</div>
+          <div class="steptitle">ابحث عن المهارة</div>
+          <div class="stepdesc">اكتب ما تريد وتصفّح المعلمين مرتبين بالتقييم الأعلى.</div>
+        </div>
+        <div class="step">
+          <div class="stepn">02</div>
+          <div class="stepic">👤</div>
+          <div class="steptitle">اختر المعلم</div>
+          <div class="stepdesc">اطلّع على الملف، التقييمات، الأوقات المتاحة، والسعر.</div>
+        </div>
+        <div class="step">
+          <div class="stepn">03</div>
+          <div class="stepic">📅</div>
+          <div class="steptitle">احجز موعدك</div>
+          <div class="stepdesc">اختر اليوم والوقت من جدول المعلم واحجز في ثوانٍ.</div>
+        </div>
+        <div class="step">
+          <div class="stepn">04</div>
+          <div class="stepic">🎥</div>
+          <div class="steptitle">جلسة فيديو مباشرة</div>
+          <div class="stepdesc">فيديو مع كاميرا، ميكروفون، وشاركة شاشة — داخل المنصة تماماً.</div>
+        </div>
+        <div class="step">
+          <div class="stepn">05</div>
+          <div class="stepic">⭐</div>
+          <div class="steptitle">قيّم تجربتك</div>
+          <div class="stepdesc">بعد الجلسة، قيّم المعلم. التقييم يؤثر على ترتيبه في البحث.</div>
+        </div>
+      </div>
+    </section>
+
+    <section style="background:var(--cream2)">
+      <div class="sh center"><span class="sl">آراء المستخدمين</span>
+        <h2 class="st">ماذا يقول <span>مجتمعنا</span></h2>
+      </div>
+      <div class="tg2">
+        <div class="tc2">
+          <div class="tc2q">"</div>
+          <p class="tc2t">تعلمت Python في أسبوعين بجلسات فيديو مخصصة. مشاركة الشاشة كانت رائعة جداً!</p>
+          <div class="tc2a">
+            <div class="tc2av" style="background:#fde68a;color:#78350f">أ</div>
+            <div>
+              <div style="font-weight:700;font-size:.84rem">أحمد الشمري</div>
+              <div style="font-size:.72rem;color:var(--muted)">مطور · الرياض</div>
+            </div>
+          </div>
+        </div>
+        <div class="tc2">
+          <div class="tc2q">"</div>
+          <p class="tc2t">الشات مع الطلاب مثل الواتساب تماماً! أدير جلساتي وأتواصل مع طلابي بسهولة.</p>
+          <div class="tc2a">
+            <div class="tc2av" style="background:#a7f3d0;color:#065f46">م</div>
+            <div>
+              <div style="font-weight:700;font-size:.84rem">مي الأحمد</div>
+              <div style="font-size:.72rem;color:var(--muted)">معلمة لغة · دبي</div>
+            </div>
+          </div>
+        </div>
+        <div class="tc2">
+          <div class="tc2q">"</div>
+          <p class="tc2t">جلسة Figma بمشاركة شاشة حلّت مشكلة كانت عالقة أسبوعاً! قيمة لا تُقدَّر.</p>
+          <div class="tc2a">
+            <div class="tc2av" style="background:#c4b5fd;color:#4c1d95">ل</div>
+            <div>
+              <div style="font-weight:700;font-size:.84rem">لمى الرشيد</div>
+              <div style="font-size:.72rem;color:var(--muted)">مصممة · القاهرة</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="cta">
+      <span class="sl">ابدأ اليوم</span>
+      <h2 class="st" style="color:#fff;margin:10px 0">جاهز تبدأ رحلتك <span style="color:var(--amber)">مع
+          Skillak؟</span></h2>
+      <p class="ctasub">انضم لأكثر من 18,000 شخص يتعلمون ويعلّمون مهاراتهم كل يوم.</p>
+      <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
+        <button class="btn btn-a" onclick="openM('regMod')">ابدأ كمتعلم — مجاناً</button>
+        <button class="btn btn-w" onclick="openRegAs('tutor')">سجّل كمعلم</button>
+      </div>
+    </section>
+
+    <footer>
+      <div class="footer-grid">
+        <div>
+          <div class="logo">Skill<span>ak</span></div>
+          <p class="fdesc">سوق التعليم المباشر — جلسات فيديو، شات واتساب، ودفع آمن.</p>
+        </div>
+        <div>
+          <div class="fh4">المنصة</div><a class="fl" onclick="go('explore')">استكشاف المعلمين</a><a class="fl" onclick="go('about')">من نحن</a><a class="fl" onclick="go('privacy')">الخصوصية</a><a class="fl" onclick="go('contact')">تواصل معنا</a>
+        </div>
+        <div>
+          <div class="fh4">المعلمون</div><a class="fl" onclick="openRegAs('tutor')">سجّل كمعلم</a><a
+            class="fl">الأرباح</a><a class="fl">دليل المعلمين</a>
+        </div>
+        <div>
+          <div class="fh4">الشركة</div><a class="fl" onclick="go('about')">من نحن</a><a class="fl" onclick="go('contact')">تواصل معنا</a><a class="fl" onclick="go('privacy')">الخصوصية</a>
+        </div>
+      </div>
+      <div class="fbot"><span>© 2026 Skillak</span><span>صُنع بـ ❤️ للعالم العربي</span></div>
+    </footer>
+
+  </div>
+
+  <!-- ═══════════════ ABOUT ═══════════════ -->
+  <div id="page-about" class="page hidden">
+    <section style="padding-top:42px">
+      <div class="sh center">
+        <span class="sl">من نحن</span>
+        <h1 class="st">منصة تعليم مباشر <span>للعالم العربي</span></h1>
+      </div>
+      <div class="card" style="max-width:1100px;margin:0 auto">
+        <div class="cb" style="line-height:1.9;font-size:.92rem;color:#374151">
+          <p>Skillak منصة تربط المتعلمين بالمعلمين في جلسات مباشرة آمنة، مع إدارة للحجوزات، محفظة داخلية، ومراجعة إدارية قبل تحويل الأرباح.</p>
+          <p style="margin-top:12px">تعمل المنصة بشكل مريح على الهاتف والكمبيوتر، مع روابط مشاركة مباشرة لملفات المعلمين وصفحات عامة قبل التسجيل.</p>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- ═══════════════ PRIVACY ═══════════════ -->
+  <div id="page-privacy" class="page hidden">
+    <section style="padding-top:42px">
+      <div class="sh center">
+        <span class="sl">الخصوصية</span>
+        <h1 class="st">سياسة <span>الخصوصية</span></h1>
+      </div>
+      <div class="card" style="max-width:1100px;margin:0 auto">
+        <div class="cb" style="line-height:1.9;font-size:.92rem;color:#374151">
+          <p>نحتفظ بالبيانات اللازمة لتشغيل الحسابات، الحجوزات، المحفظة، الرسائل، والتقييمات فقط.</p>
+          <p style="margin-top:12px">الصور والملفات تُستخدم داخل المنصة لإدارة الملف الشخصي، ويمكن حذفها من إعدادات الحساب. تتم مراجعة التحويلات والسحوبات من الإدارة قبل الاعتماد.</p>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- ═══════════════ CONTACT ═══════════════ -->
+  <div id="page-contact" class="page hidden">
+    <section style="padding-top:42px">
+      <div class="sh center">
+        <span class="sl">تواصل معنا</span>
+        <h1 class="st">نحن هنا <span>لمساعدتك</span></h1>
+      </div>
+      <div class="card" style="max-width:900px;margin:0 auto">
+        <div class="cb" style="display:grid;gap:12px;line-height:1.85;font-size:.92rem;color:#374151">
+          <div>فيسبوك: <a href="https://www.facebook.com/skillak.hub" target="_blank" rel="noopener">Skillak Hub</a></div>
+          <div>للدعم أو الاستفسارات، استخدم صفحة التواصل أو أرسل من حسابك داخل المنصة بعد التسجيل.</div>
+          <div>يمكنك كذلك مشاركة ملف أي معلم مباشرةً من صفحة الملف الشخصي عبر الرابط الخاص به.</div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- ═══════════════ EXPLORE ═══════════════ -->
+  <div id="page-explore" class="page hidden">
+    <div class="exp">
+      <div class="sh split" style="margin-bottom:20px">
+        <div><span class="sl">استكشف</span>
+          <h1 class="st">اعثر على <span>معلمك المثالي</span></h1>
+        </div>
+      </div>
+      <div class="fbar-toggle" onclick="toggleFilters()" id="filterToggle">
+        <span>🔧</span> <span id="filterToggleLabel">إظهار الفلاتر</span>
+      </div>
+      <div class="fbar collapsed" id="filterBar">
+        <div class="fgrp" style="flex:2.5;min-width:180px"><label>🔍 بحث</label><input type="text" id="exSrch"
+            placeholder="مهارة، اسم المعلم..." oninput="renderExplore()" /></div>
+        <div class="fgrp"><label>📂 التخصص</label><select id="exCat" onchange="renderExplore()">
+            <option value="">الكل</option>
+            <option>برمجة</option>
+            <option>تصميم</option>
+            <option>لغات</option>
+            <option>Excel</option>
+            <option>تسويق</option>
+            <option>مونتاج</option>
+            <option>مهارات وظيفية</option>
+            <option>موسيقى</option>
+          </select></div>
+        <div class="fgrp"><label>⭐ أقل تقييم</label><select id="exRat" onchange="renderExplore()">
+            <option value="0">الكل</option>
+            <option value="4">4+</option>
+            <option value="4.5">4.5+</option>
+          </select></div>
+        <div class="fgrp"><label>💰 أعلى سعر</label><select id="exPrc" onchange="renderExplore()">
+            <option value="9999">الكل</option>
+            <option value="20">$20</option>
+            <option value="35">$35</option>
+            <option value="50">$50</option>
+          </select></div>
+        <div class="fgrp"><label>🌐 اللغة</label><select id="exLng" onchange="renderExplore()">
+            <option value="">الكل</option>
+            <option value="عربي">عربي</option>
+            <option value="إنجليزي">إنجليزي</option>
+          </select></div>
+      </div>
+      <div class="rh">
+        <div class="rcnt" id="exCnt">جاري التحميل...</div>
+        <select class="sortsel" id="exSort" onchange="renderExplore()">
+          <option value="rating">الأعلى تقييماً ⭐</option>
+          <option value="sessions">الأكثر جلسات</option>
+          <option value="price_asc">السعر: الأقل</option>
+          <option value="price_desc">السعر: الأعلى</option>
+        </select>
+      </div>
+      <div class="tgrid" id="exploreGrid">
+        <div class="empty">
+          <div class="emptyic">⏳</div>
+          <p>جاري تحميل المعلمين...</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ PROFILE ═══════════════ -->
+  <div id="page-profile" class="page hidden">
+    <div class="profwrap">
+      <div style="margin-bottom:13px"><button class="btn btn-gh btn-sm" onclick="go('explore')">← رجوع للنتائج</button>
+      </div>
+      <div class="proflay">
+        <div id="profMain"></div>
+        <div id="profSidebar"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ DASHBOARD ═══════════════ -->
+  <div id="page-dashboard" class="page hidden">
+    <div class="dashlay">
+      <div class="sidebar">
+        <div class="sbu">
+          <div class="sbav" id="sbAv">أ</div>
+          <div class="sbname" id="sbNm">—</div>
+          <div class="sbrole" id="sbRl">متعلم</div>
+        </div>
+        <div class="sbnav" id="sbNav"></div>
+      </div>
+      <div class="dashcon" id="dashCon">
+        <div style="text-align:center;padding:80px">
+          <div class="spin" style="margin:0 auto"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ CHAT (WhatsApp Style) ═══════════════ -->
+  <div id="page-chat" class="page hidden">
+    <div class="chatlay">
+      <div class="cpanel">
+        <div class="cphdr">
+          <span class="cphdr-title">💬 الرسائل</span>
+          <button class="btn btn-w btn-sm" style="padding:5px 11px;font-size:.74rem" onclick="go('explore')">+ محادثة
+            جديدة</button>
+        </div>
+        <div class="cpsrch"><input type="text" id="cpSrch" placeholder="🔍 ابحث في المحادثات..."
+            oninput="filterContacts()" /></div>
+        <div class="clist" id="contactsList">
+          <div class="nocont">
+            <div class="emptyic" style="font-size:2.5rem;margin-bottom:8px">💬</div>
+            <p>لا توجد محادثات بعد.<br />ابحث عن معلم وراسله!</p>
+          </div>
+        </div>
+      </div>
+      <div class="chatwin">
+        <div class="chwinhdr" id="chatHdr">
+          <button class="backbtn" onclick="go('dashboard')">←</button>
+          <div class="cwhav" id="chatHdrAv">؟</div>
+          <div class="cwhinfo">
+            <div class="cwhname" id="chatHdrName">اختر محادثة</div>
+            <div class="cwhstatus" id="chatHdrStatus"></div>
+          </div>
+          <div class="cwhact">
+            <button class="cwhbtn" id="chatCallBtn" onclick="startVideoFromChat()" title="جلسة فيديو"
+              style="display:none">📹</button>
+          </div>
+        </div>
+        <div class="chatmsgs" id="chatMsgs">
+          <div class="chatempty">
+            <div class="chatemptyic">💬</div>
+            <p style="font-weight:600;margin-bottom:6px">ابدأ محادثة مع معلمك</p>
+            <p style="font-size:.82rem">اختر محادثة من القائمة أو ابحث عن معلم وراسله</p>
+          </div>
+        </div>
+        <div class="chatinparea" id="chatInpArea" style="display:none">
+          <input type="text" id="chatInp" placeholder="اكتب رسالتك..."
+            onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMsg()}" />
+          <button class="sendbtn" onclick="sendMsg()" title="إرسال">➤</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ SESSION ═══════════════ -->
+  <div id="page-session" class="page hidden">
+    <div class="sesbar">
+      <div class="sesinfo">
+        <div class="seslogo">Skill<span>ak</span></div>
+        <div style="width:1px;height:16px;background:rgba(255,255,255,.12)"></div>
+        <div class="sestitle" id="sesTitle">جلسة تعليمية</div>
+        <div style="display:flex;align-items:center;gap:5px">
+          <div class="sesdot" id="sesDot" style="background:var(--amber)"></div><span class="sesstatus" id="sesTxt">جاري
+            الاتصال...</span>
+        </div>
+      </div>
+      <div class="sestimer" id="sesTimer">00:00:00</div>
+    </div>
+    <div class="sesmain">
+      <div class="seschat hidden" id="sesChatPnl">
+        <div class="seschathdr">💬 دردشة الجلسة<button
+            style="background:none;border:none;color:rgba(255,255,255,.5);cursor:pointer;font-size:.96rem"
+            onclick="toggleSesChat()">✕</button></div>
+        <div class="sesmsgs" id="sesMsgs"></div>
+        <div class="sesinp"><input type="text" id="sesInp" placeholder="اكتب رسالة..."
+            onkeydown="if(event.key==='Enter')sendSesMsg()" /><button class="btn btn-p btn-sm"
+            onclick="sendSesMsg()">إرسال</button></div>
+      </div>
+      <div id="remWrap">
+        <video id="remVid" autoplay playsinline></video>
+        <div class="waitov" id="waitOv">
+          <div style="font-size:3.6rem">📹</div>
+          <h3>في انتظار الطرف الآخر...</h3>
+          <p>سيبدأ الاتصال تلقائياً عند انضمامه</p>
+          <div class="spin" style="margin-top:7px"></div>
+        </div>
+      </div>
+      <div id="locWrap">
+        <video id="locVid" autoplay playsinline muted></video>
+        <div id="camOffOv"
+          style="position:absolute;inset:0;background:#1a1a2e;display:none;align-items:center;justify-content:center;flex-direction:column;gap:5px;color:rgba(255,255,255,.4)">
+          <span style="font-size:1.6rem">📷</span><span style="font-size:.68rem">مغلقة</span>
+        </div>
+      </div>
+    </div>
+    <div class="sesctrls">
+      <div class="cwrap"><button class="cbtn on" id="micBtn" onclick="togMic()">🎤</button>
+        <div class="clbl">ميكروفون</div>
+      </div>
+      <div class="cwrap"><button class="cbtn on" id="camBtn" onclick="togCam()">📷</button>
+        <div class="clbl">كاميرا</div>
+      </div>
+      <div class="cwrap"><button class="cbtn on" id="scrBtn" onclick="togScr()">🖥️</button>
+        <div class="clbl">شاشة</div>
+      </div>
+      <div class="cwrap"><button class="cbtn chattog" id="chatTogBtn" onclick="toggleSesChat()">💬</button>
+        <div class="clbl">دردشة</div>
+      </div>
+      <div class="cwrap"><button class="cbtn on" id="flipBtn" onclick="switchCameraFacing()">🔄</button>
+        <div class="clbl">تبديل</div>
+      </div>
+      <div class="cwrap"><button class="cbtn end" onclick="endSession()">📵</button>
+        <div class="clbl">إنهاء</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ WALLET ═══════════════ -->
+  <div id="page-wallet" class="page hidden">
+    <div class="walwrap">
+      <!-- Header -->
+      <div
+        style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:10px">
+        <div>
+          <button class="btn btn-gh btn-sm" onclick="go('dashboard')" style="margin-bottom:8px">← رجوع</button>
+          <h1 style="font-family:'Fraunces',serif;font-size:1.9rem;margin:0">💳 محفظتي</h1>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <div
+            style="display:flex;align-items:center;gap:7px;background:var(--green2);border:1px solid rgba(16,185,129,.25);border-radius:100px;padding:6px 14px;font-size:.78rem;font-weight:700;color:#065f46">
+            🔒 آمن ومشفر
+          </div>
+          <button class="btn btn-gh btn-sm" onclick="openM('paymobCfgMod')"
+            style="display:flex;align-items:center;gap:5px">⚙️ إعداد الدفع</button>
+        </div>
+      </div>
+
+      <!-- Balance Card -->
+      <div class="walcard">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;position:relative">
+          <div>
+            <div class="wallbl">الرصيد المتاح</div>
+            <div class="walamt"><span id="wBal">0.00</span><span
+                style="font-size:1.2rem;opacity:.7;margin-right:6px">ج.م</span></div>
+            <div style="margin-top:10px;font-size:.76rem;color:rgba(255,255,255,.5)">🔒 رصيد محمي داخل منصة Skillak
+            </div>
+          </div>
+          <div style="position:relative;z-index:1">
+            <div
+              style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);border-radius:12px;padding:10px 14px;text-align:center">
+              <div style="font-size:.7rem;color:rgba(255,255,255,.5);margin-bottom:3px">وسائل الدفع</div>
+              <div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:center;margin-top:4px">
+                <span
+                  style="font-size:.62rem;background:rgba(255,255,255,.15);color:rgba(255,255,255,.85);border-radius:4px;padding:2px 6px;font-weight:700">فيزا</span>
+                <span
+                  style="font-size:.62rem;background:rgba(255,255,255,.15);color:rgba(255,255,255,.85);border-radius:4px;padding:2px 6px;font-weight:700">InstaPay</span>
+                <span
+                  style="font-size:.62rem;background:rgba(255,255,255,.15);color:rgba(255,255,255,.85);border-radius:4px;padding:2px 6px;font-weight:700">فودافون</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- Quick stats -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:18px;position:relative">
+          <div style="background:rgba(255,255,255,.07);border-radius:10px;padding:10px 14px">
+            <div style="font-size:.68rem;color:rgba(255,255,255,.4);margin-bottom:3px">إجمالي الشحن</div>
+            <div style="font-weight:800;color:#fff" id="wTotalIn">$0.00</div>
+          </div>
+          <div style="background:rgba(255,255,255,.07);border-radius:10px;padding:10px 14px">
+            <div style="font-size:.68rem;color:rgba(255,255,255,.4);margin-bottom:3px">إجمالي الإنفاق</div>
+            <div style="font-weight:800;color:#fff" id="wTotalOut">$0.00</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Payment Top-up Section -->
+      <div class="card" id="topupCard" style="margin-bottom:20px;overflow:hidden">
+        <div class="ch"
+          style="background:linear-gradient(135deg,var(--teal) 0%,var(--teal2) 100%);border-radius:var(--r) var(--r) 0 0">
+          <div class="ct" style="color:#fff;display:flex;align-items:center;gap:8px">
+            <span style="font-size:1.1rem">💰</span> شحن المحفظة
+          </div>
+          <div
+            style="background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);border-radius:8px;padding:4px 10px;font-size:.72rem;color:rgba(255,255,255,.9);font-weight:700">
+            🔒 آمن ومشفر
+          </div>
+        </div>
+        <div class="cb" style="padding:22px">
+
+          <!-- Amount selector -->
+          <p style="font-size:.8rem;font-weight:700;color:var(--muted);margin-bottom:10px">اختر المبلغ (بالجنيه المصري):
+          </p>
+          <div class="amt-grid" id="amtGrid">
+            <div class="amt-btn" onclick="selAmt(50,this)"><span class="amt-num">50</span><span
+                class="amt-cur">EGP</span></div>
+            <div class="amt-btn" onclick="selAmt(100,this)"><span class="amt-num">100</span><span
+                class="amt-cur">EGP</span></div>
+            <div class="amt-btn" onclick="selAmt(200,this)"><span class="amt-num">200</span><span
+                class="amt-cur">EGP</span></div>
+            <div class="amt-btn" onclick="selAmt(500,this)"><span class="amt-num">500</span><span
+                class="amt-cur">EGP</span></div>
+          </div>
+
+          <!-- Custom amount -->
+          <div class="fg" style="margin-bottom:16px">
+            <label style="font-size:.78rem;color:var(--muted)">أو أدخل مبلغ مخصص:</label>
+            <div style="position:relative">
+              <input type="number" id="customAmt" placeholder="أدخل المبلغ بالجنيه..." min="20"
+                style="padding:11px 50px 11px 16px" oninput="selAmtCustom(parseFloat(this.value)||0)" />
+              <span
+                style="position:absolute;left:14px;top:50%;transform:translateY(-50%);font-size:.78rem;font-weight:800;color:var(--teal)">EGP</span>
+            </div>
+          </div>
+
+          <!-- Payment methods tabs -->
+          <p style="font-size:.8rem;font-weight:700;color:var(--muted);margin-bottom:10px">اختر طريقة الدفع:</p>
+          <div class="pay-tabs" id="payTabs">
+            <div class="pay-tab active" onclick="switchPayTab('instapay',this)">
+              <span class="pt-ic">📲</span>InstaPay
+            </div>
+            <div class="pay-tab" onclick="switchPayTab('vodafone',this)">
+              <span class="pt-ic">📱</span>فودافون كاش
+            </div>
+            <div class="pay-tab" onclick="switchPayTab('fawry',this)">
+              <span class="pt-ic">🟠</span>Fawry
+            </div>
+            <div class="pay-tab" onclick="switchPayTab('bank',this)">
+              <span class="pt-ic">🏦</span>تحويل بنكي
+            </div>
+          </div>
+
+          <!-- InstaPay Panel -->
+          <div id="panel-instapay" class="pay-panel active">
+            <div class="pay-info-box">
+              <p style="font-size:.82rem;font-weight:700;color:var(--ink);margin-bottom:12px">أرسل المبلغ على حساب
+                InstaPay التالي:</p>
+              <div class="pib-row">
+                <span class="pib-label">رقم الهاتف</span>
+                <div style="display:flex;align-items:center;gap:8px">
+                  <span class="pib-val">01004989936</span>
+                  <button class="pib-copy" onclick="cpyTxt('01004989936','رقم الهاتف')">نسخ</button>
+                </div>
+              </div>
+              <div class="pib-row">
+                <span class="pib-label">اسم المستفيد</span>
+                <span class="pib-val">Skillak Platform</span>
+              </div>
+            </div>
+            <div class="fg" style="margin-bottom:0">
+              <label>رقم العملية (Transaction ID) <span class="req">*</span></label>
+              <input type="text" id="ref-instapay" placeholder="أدخل رقم العملية من InstaPay..." />
+              <div class="fh">ستجده في رسالة التأكيد من تطبيق InstaPay</div>
+            </div>
+          </div>
+
+          <!-- Vodafone Cash Panel -->
+          <div id="panel-vodafone" class="pay-panel">
+            <div class="pay-info-box">
+              <p style="font-size:.82rem;font-weight:700;color:var(--ink);margin-bottom:12px">أرسل المبلغ على محفظة
+                فودافون كاش:</p>
+              <div class="pib-row">
+                <span class="pib-label">رقم الهاتف</span>
+                <div style="display:flex;align-items:center;gap:8px">
+                  <span class="pib-val">01004989936</span>
+                  <button class="pib-copy" onclick="cpyTxt('01004989936','رقم الهاتف')">نسخ</button>
+                </div>
+              </div>
+              <div class="pib-row">
+                <span class="pib-label">اسم المحفظة</span>
+                <span class="pib-val">Skillak Platform</span>
+              </div>
+              <div class="pib-row">
+                <span class="pib-label">طريقة الإرسال</span>
+                <span class="pib-val">تحويل عبر *9# ← حوّل</span>
+              </div>
+            </div>
+            <div class="fg" style="margin-bottom:0">
+              <label>رقم العملية <span class="req">*</span></label>
+              <input type="text" id="ref-vodafone" placeholder="أدخل رقم العملية من فودافون كاش..." />
+            </div>
+          </div>
+
+          <!-- Fawry Panel -->
+          <div id="panel-fawry" class="pay-panel">
+            <div class="pay-info-box">
+              <p style="font-size:.82rem;font-weight:700;color:var(--ink);margin-bottom:12px">ادفع عن طريق Fawry:
+              </p>
+              <div class="pib-row">
+                <span class="pib-label">رقم الهاتف</span>
+                <div style="display:flex;align-items:center;gap:8px">
+                  <span class="pib-val">01004989936</span>
+                  <button class="pib-copy" onclick="cpyTxt('01004989936','رقم الهاتف')">نسخ</button>
+                </div>
+              </div>
+              <div class="pib-row">
+                <span class="pib-label">اسم المحفظة</span>
+                <span class="pib-val">Skillak Platform</span>
+              </div>
+            </div>
+            <p style="font-size:.78rem;color:var(--muted);margin-bottom:12px;line-height:1.7">
+              اذهب لأقرب منفذ Fawry أو استخدم تطبيق My Fawry وادفع المبلغ باستخدام تحويل على الرقم.
+            </p>
+            <div class="fg" style="margin-bottom:0">
+              <label>رقم إيصال Fawry <span class="req">*</span></label>
+              <input type="text" id="ref-fawry" placeholder="أدخل رقم الإيصال بعد الدفع..." />
+            </div>
+          </div>
+
+          <!-- Bank Transfer Panel -->
+          <div id="panel-bank" class="pay-panel">
+            <div class="pay-info-box">
+              <p style="font-size:.82rem;font-weight:700;color:var(--ink);margin-bottom:12px">حوّل على الحساب البنكي
+                التالي:</p>
+              <div class="pib-row">
+                <span class="pib-label">البنك</span>
+                <span class="pib-val">بنك مصر / CIB</span>
+              </div>
+              <div class="pib-row">
+                <span class="pib-label">رقم الحساب</span>
+                <div style="display:flex;align-items:center;gap:8px">
+                  <span class="pib-val" style="font-family:monospace">3670-3830-0000-1140</span>
+                  <button class="pib-copy" onclick="cpyTxt('3670383000001140','رقم الحساب')">نسخ</button>
+                </div>
+              </div>
+              <div class="pib-row">
+                <span class="pib-label">اسم صاحب الحساب</span>
+                <span class="pib-val">Skillak Platform</span>
+              </div>
+            </div>
+            <div class="fg" style="margin-bottom:0">
+              <label>رقم العملية أو الإيصال <span class="req">*</span></label>
+              <input type="text" id="ref-bank" placeholder="أدخل رقم التحويل أو الإيصال البنكي..." />
+            </div>
+          </div>
+
+          <!-- Submit -->
+          <div id="paySelDisplay"
+            style="margin-top:12px;padding:10px 14px;background:var(--cream2);border-radius:var(--rsm);font-size:.84rem;font-weight:700;color:var(--ink);text-align:center;display:none">
+            سيُشحن رصيدك بـ <strong id="paySelAmt" style="color:var(--teal)"></strong> بعد تأكيد الدفع من الإدارة
+          </div>
+
+          <button class="pay-submit-btn" id="paySubmitBtn" onclick="submitPayment()">
+            <span>📤</span> إرسال طلب الشحن
+          </button>
+
+          <!-- Note -->
+          <div
+            style="margin-top:14px;padding:12px 14px;background:var(--amber3);border:1px solid rgba(245,158,11,.25);border-radius:var(--rsm);font-size:.78rem;line-height:1.7">
+            ⏱️ <strong>ملاحظة:</strong> سيتم مراجعة طلبك وإضافة الرصيد خلال <strong>1-24 ساعة</strong> من تأكيد الدفع.
+          </div>
+        </div>
+      </div>
+
+      <!-- Teacher Withdrawal Section (shown only for tutors) -->
+      <div class="card" id="withdrawCard" style="margin-bottom:20px;display:none">
+        <div class="ch" style="background:linear-gradient(135deg,#0a5260,var(--teal))">
+          <div class="ct" style="color:#fff;display:flex;align-items:center;gap:8px">
+            <span>💸</span> سحب الأرباح
+          </div>
+        </div>
+        <div class="cb" style="padding:22px">
+          <!-- Withdraw amount -->
+          <div class="fg">
+            <label>المبلغ المطلوب سحبه (EGP) <span class="req">*</span></label>
+            <div style="position:relative">
+              <input type="number" id="wdAmt" placeholder="أدخل المبلغ..." min="50"
+                style="padding:12px 50px 12px 16px" />
+              <span
+                style="position:absolute;left:14px;top:50%;transform:translateY(-50%);font-size:.78rem;font-weight:800;color:var(--teal)">EGP</span>
+            </div>
+            <div class="fh">الحد الأدنى للسحب: 50 جنيه · رصيدك: <strong id="wdBal" style="color:var(--teal)">0</strong>
+              جنيه</div>
+          </div>
+
+          <!-- Withdrawal method -->
+          <label style="font-weight:700;font-size:.84rem;margin-bottom:10px;display:block">اختر وسيلة الاستلام:</label>
+          <button class="withdraw-method-btn" id="wm-instapay" onclick="selWdMethod('instapay')">
+            <span class="wm-ic">📲</span>
+            <div style="text-align:right">
+              <div style="font-weight:700">InstaPay</div>
+              <div style="font-size:.74rem;color:var(--muted)">تحويل فوري</div>
+            </div>
+          </button>
+          <button class="withdraw-method-btn" id="wm-vodafone" onclick="selWdMethod('vodafone')">
+            <span class="wm-ic">📱</span>
+            <div style="text-align:right">
+              <div style="font-weight:700">فودافون كاش</div>
+              <div style="font-size:.74rem;color:var(--muted)">خلال ساعات</div>
+            </div>
+          </button>
+          <button class="withdraw-method-btn" id="wm-fawry" onclick="selWdMethod('fawry')">
+            <span class="wm-ic">🏪</span>
+            <div style="text-align:right">
+              <div style="font-weight:700">Fawry</div>
+              <div style="font-size:.74rem;color:var(--muted)">منفذ فوري</div>
+            </div>
+          </button>
+          <button class="withdraw-method-btn" id="wm-bank" onclick="selWdMethod('bank')">
+            <span class="wm-ic">🏦</span>
+            <div style="text-align:right">
+              <div style="font-weight:700">تحويل بنكي</div>
+              <div style="font-size:.74rem;color:var(--muted)">1-2 يوم عمل</div>
+            </div>
+          </button>
+
+          <!-- Account details -->
+          <div id="wdAccPanel" style="margin-top:12px">
+            <div class="fg">
+              <label id="wdAccLabel">رقم الحساب / الهاتف <span class="req">*</span></label>
+              <input type="text" id="wdAccNum" placeholder="أدخل البيانات..." />
+            </div>
+            <div class="fg" id="wdAccNameDiv">
+              <label>الاسم المسجل <span class="req">*</span></label>
+              <input type="text" id="wdAccName" placeholder="الاسم الكامل..." />
+            </div>
+          </div>
+
+          <button class="pay-submit-btn" onclick="submitWithdrawal()">
+            <span>💸</span> طلب السحب
+          </button>
+          <div style="margin-top:10px;font-size:.76rem;color:var(--muted);text-align:center">
+            يُعالج السحب خلال 1-3 أيام عمل بعد مراجعة الإدارة
+          </div>
+
+          <!-- Pending withdrawals -->
+          <div id="wdHistory" style="margin-top:18px"></div>
+        </div>
+      </div>
+
+      <!-- Transactions -->
+      <div class="card">
+        <div class="ch" style="justify-content:space-between">
+          <div class="ct">📋 سجل المعاملات</div>
+          <button class="btn btn-gh btn-xs" onclick="loadTxList()">🔄 تحديث</button>
+        </div>
+        <div class="cb" id="txList" style="padding:0">
+          <div class="empty" style="padding:32px">
+            <div class="emptyic">📭</div>
+            <p>لا توجد معاملات مالية بعد</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ PAYMENT SUBMITTED MODAL ══ -->
+  <div id="payDoneMod" class="mov hidden" onclick="closeBg(event,'payDoneMod')">
+    <div class="modal" style="max-width:420px">
+      <button class="mc" onclick="closeM('payDoneMod')">✕</button>
+      <div class="mi" style="text-align:center">
+        <div
+          style="width:72px;height:72px;background:var(--green2);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:2rem;margin:0 auto 16px">
+          ✅</div>
+        <h2 class="mtitle" style="margin-bottom:8px">تم إرسال طلبك!</h2>
+        <p class="msub" style="margin-bottom:20px">تم استلام طلب الشحن بنجاح. سيراجع فريق Skillak طلبك ويضيف الرصيد خلال
+          <strong>1-24 ساعة</strong>.
+        </p>
+        <div
+          style="background:var(--cream2);border-radius:var(--rsm);padding:14px;font-size:.83rem;margin-bottom:16px;text-align:right">
+          <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span>المبلغ:</span><strong
+              id="pdAmt" style="color:var(--teal)">—</strong></div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span>الطريقة:</span><strong
+              id="pdMethod">—</strong></div>
+          <div style="display:flex;justify-content:space-between"><span>الحالة:</span><span class="pill pp">قيد
+              المراجعة</span></div>
+        </div>
+        <button class="btn btn-p" style="width:100%" onclick="closeM('payDoneMod')">حسناً، شكراً!</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ EDIT PROFILE ═══════════════ -->
+  <div id="page-editProfile" class="page hidden">
+    <div class="editwrap">
+      <div style="margin-bottom:20px"><button class="btn btn-gh btn-sm" onclick="go('dashboard')">← رجوع</button></div>
+      <h1 style="font-family:'Fraunces',serif;font-size:1.8rem;margin-bottom:22px">✏️ تعديل الملف الشخصي</h1>
+      <div class="card">
+        <div class="cb">
+          <div class="avupld">
+            <div class="avprev" id="editAvPr">أ</div>
+            <div style="flex:1">
+              <label>رابط صورة الملف (URL)</label><input type="url" id="editPh"
+                placeholder="https://..." oninput="prvEditAv()" />
+              <div class="fh">أو ارفع صورة من جهازك ليتم حفظها مباشرةً</div>
+              <input type="file" id="editImg" accept="image/*" style="margin-top:8px" />
+            </div>
+          </div>
+          <div class="fr">
+            <div class="fg"><label>الاسم الأول <span class="req">*</span></label><input type="text" id="editFN"
+                placeholder="أحمد" /></div>
+            <div class="fg"><label>اسم العائلة</label><input type="text" id="editLN" placeholder="السعيد" /></div>
+          </div>
+          <div class="fg"><label>نبذة تعريفية</label><textarea id="editBio" rows="4"
+              placeholder="أخبر الجميع عن خبرتك..."></textarea></div>
+          <div class="fr">
+            <div class="fg"><label>دولة الإقامة</label><input type="text" id="editCnt" placeholder="السعودية..." />
+            </div>
+            <div class="fg"><label>لغة التدريس</label><select id="editLng">
+                <option value="عربي">عربي</option>
+                <option value="إنجليزي">إنجليزي</option>
+                <option value="عربي وإنجليزي">عربي وإنجليزي</option>
+              </select></div>
+          </div>
+          <div id="editTutSec" class="hidden">
+            <div style="border-top:2px solid var(--border);margin:20px 0;padding-top:20px">
+              <h3 style="font-weight:700;margin-bottom:16px">⚙️ إعدادات المعلم</h3>
+              <div class="fr">
+                <div class="fg"><label>التخصص الرئيسي</label><select id="editCat">
+                    <option>برمجة</option>
+                    <option>تصميم</option>
+                    <option>لغات</option>
+                    <option>Excel</option>
+                    <option>تسويق</option>
+                    <option>مونتاج</option>
+                    <option>مهارات وظيفية</option>
+                    <option>موسيقى</option>
+                  </select></div>
+                <div class="fg"><label>السعر بالساعة ($)</label><input type="number" id="editPrc" placeholder="25"
+                    min="5" max="500" /></div>
+              </div>
+              <div class="fg"><label>سنوات الخبرة</label><input type="number" id="editExp" placeholder="3" min="0"
+                  max="50" /></div>
+              <div class="fg"><label>المهارات (اضغط Enter لإضافة كل مهارة)</label>
+                <div class="skbox" id="skBox" onclick="document.getElementById('skInp').focus()"><input type="text"
+                    id="skInp" onkeydown="hdlSkEdit(event)" placeholder="Python، Figma..." /></div>
+              </div>
+            </div>
+          </div>
+          <div style="display:flex;gap:10px;margin-top:4px">
+            <button class="btn btn-p" onclick="savePrf()">💾 حفظ التغييرات</button>
+            <button class="btn btn-gh" onclick="go('dashboard')">إلغاء</button>
+          </div>
+        </div>
+      </div>
+      <div id="editAvailSec" class="card hidden" style="margin-top:16px">
+        <div class="ch">
+          <div class="ct">📅 الأوقات المتاحة للحجز</div><button class="btn btn-p btn-sm" onclick="saveAvail()">💾 حفظ
+            الجدول</button>
+        </div>
+        <div class="cb">
+          <p style="font-size:.8rem;color:var(--muted);margin-bottom:12px">انقر على الوقت لتفعيله — الأوقات الخضراء
+            ستظهر للطلاب عند الحجز.</p>
+          <div class="avgrid" id="avGrid"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ ADMIN ═══════════════ -->
+  <div id="page-admin" class="page hidden">
+    <div style="padding:38px 5%">
+      <div
+        style="display:flex;align-items:center;justify-content:space-between;margin-bottom:26px;flex-wrap:wrap;gap:12px">
+        <div><span class="sl">الإدارة</span>
+          <h1 class="st">لوحة <span>تحكم الإدارة</span></h1>
+        </div>
+        <button class="btn btn-gh btn-sm" onclick="go('home')">← الموقع</button>
+      </div>
+      <div style="display:flex;gap:7px;margin-bottom:20px;flex-wrap:wrap;padding-bottom:4px">
+        <button class="btn btn-p btn-sm adminTab" onclick="adTab('stats',this)">📊 الإحصائيات</button>
+        <button class="btn btn-gh btn-sm adminTab" onclick="adTab('bookings',this)" style="position:relative">
+          📅 الحجوزات <span id="admBkBadge" class="hidden"
+            style="position:absolute;top:-5px;right:-5px;background:var(--red);color:#fff;border-radius:100px;padding:1px 5px;font-size:.6rem;font-weight:800;border:1.5px solid #fff"></span>
+        </button>
+        <button class="btn btn-gh btn-sm adminTab" onclick="adTab('payments',this)" style="position:relative">
+          💰 طلبات الشحن <span id="admPayBadge" class="hidden"
+            style="position:absolute;top:-5px;right:-5px;background:var(--red);color:#fff;border-radius:100px;padding:1px 5px;font-size:.6rem;font-weight:800;border:1.5px solid #fff"></span>
+        </button>
+        <button class="btn btn-gh btn-sm adminTab" onclick="adTab('withdrawals',this)" style="position:relative">
+          💸 طلبات السحب <span id="admWdBadge" class="hidden"
+            style="position:absolute;top:-5px;right:-5px;background:var(--red);color:#fff;border-radius:100px;padding:1px 5px;font-size:.6rem;font-weight:800;border:1.5px solid #fff"></span>
+        </button>
+        <button class="btn btn-gh btn-sm adminTab" onclick="adTab('users',this)">👥 المستخدمون</button>
+        <button class="btn btn-gh btn-sm adminTab" onclick="adTab('reviews',this)">⭐ التقييمات</button>
+        <button class="btn btn-gh btn-sm adminTab" onclick="adTab('reports',this)">📑 التقارير</button>
+      </div>
+      <div id="adCon"></div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════ MODALS ════════════════════════ -->
+  <!-- REGISTER -->
+  <div id="regMod" class="mov hidden" onclick="closeBg(event,'regMod')">
+    <div class="modal">
+      <button class="mc" onclick="closeM('regMod')">✕</button>
+      <div class="mi">
+        <div class="mlogo">
+          <div class="logo">Skill<span>ak</span></div>
+        </div>
+        <div class="stepind">
+          <div class="sd act" id="sd1">1</div>
+          <div class="sline" id="sl1"></div>
+          <div class="sd" id="sd2">2</div>
+          <div class="sline" id="sl2"></div>
+          <div class="sd" id="sd3">3</div>
+          <div class="sline" id="sl3"></div>
+          <div class="sd" id="sd4">4</div>
+        </div>
+        <!-- Step 1: Role -->
+        <div id="rS1">
+          <h2 class="mtitle">إنشاء حساب جديد</h2>
+          <p class="msub">اختر كيف تريد استخدام المنصة</p>
+          <div class="roleg">
+            <div class="ro act" id="ro-learner" onclick="pickRole('learner')"><span class="roic">📚</span>
+              <div class="rotitle">متعلم</div>
+              <div class="rodesc">أحجز وأتعلم</div>
+            </div>
+            <div class="ro" id="ro-tutor" onclick="pickRole('tutor')"><span class="roic">🎓</span>
+              <div class="rotitle">معلم</div>
+              <div class="rodesc">أدرّس وأكسب</div>
+            </div>
+            <div class="ro" id="ro-both" onclick="pickRole('both')"><span class="roic">🔄</span>
+              <div class="rotitle">الاثنان</div>
+              <div class="rodesc">أتعلم وأعلّم</div>
+            </div>
+          </div>
+          <button class="btn btn-p" style="width:100%" onclick="gRS(2)">التالي ←</button>
+          <p class="asw">لديك حساب؟ <a onclick="switchM('regMod','loginMod')">سجّل الدخول</a></p>
+        </div>
+        <!-- Step 2: Basic Info -->
+        <div id="rS2" class="hidden">
+          <h2 class="mtitle">معلوماتك الأساسية</h2>
+          <p class="msub">أخبرنا من أنت</p>
+          <div class="fr">
+            <div class="fg"><label>الاسم الأول <span class="req">*</span></label><input type="text" id="r2F"
+                placeholder="أحمد" /></div>
+            <div class="fg"><label>اسم العائلة</label><input type="text" id="r2L" placeholder="السعيد" /></div>
+          </div>
+          <div class="fg"><label>البريد الإلكتروني <span class="req">*</span></label><input type="email" id="r2E"
+              placeholder="you@email.com" /></div>
+          <div class="fr">
+            <div class="fg"><label>الدولة <span class="req">*</span></label><select id="r2Country" class="country-select" onchange="syncPhoneCountry('r2Country','r2Code')"></select></div>
+            <div class="fg"><label>رمز الدولة <span class="req">*</span></label><select id="r2Code" class="phone-code-select"></select></div>
+          </div>
+          <div class="fg"><label>رقم الهاتف المحلي <span class="req">*</span></label><input type="tel" id="r2Ph"
+              placeholder="01xxxxxxxxx" style="direction:ltr;text-align:right" /></div>
+          <div class="fg"><label>صورة الملف الشخصي (اختياري)</label><input type="file" id="r2Img" accept="image/*" />
+            <div class="fh">يمكنك رفع صورة من جهازك لاستخدامها في الملف الشخصي.</div>
+          </div>
+          <div class="fg"><label>كلمة المرور <span class="req">*</span></label><input type="password" id="r2P"
+              placeholder="6 أحرف على الأقل" /></div>
+          <div style="display:flex;gap:8px"><button class="btn btn-gh" style="flex:1" onclick="gRS(1)">←
+              رجوع</button><button class="btn btn-p" style="flex:2" onclick="gRS(3)">التالي ←</button></div>
+        </div>
+        <!-- Step 3: Tutor Info -->
+        <div id="rS3" class="hidden">
+          <h2 class="mtitle">ملفك كمعلم</h2>
+          <p class="msub">أخبر الطلاب عن خبرتك</p>
+          <div class="fg"><label>نبذة تعريفية <span class="req">*</span></label><textarea id="r3Bio" rows="3"
+              placeholder="أنا مطور بخبرة 5 سنوات في Python..."></textarea></div>
+          <div class="fr">
+            <div class="fg"><label>سنوات الخبرة</label><input type="number" id="r3Exp" placeholder="3" min="0" /></div>
+            <div class="fg"><label>السعر/ساعة ($) <span class="req">*</span></label><input type="number" id="r3Prc"
+                placeholder="25" min="5" /></div>
+          </div>
+          <div class="fr">
+            <div class="fg"><label>التخصص الرئيسي</label><select id="r3Cat">
+                <option>برمجة</option>
+                <option>تصميم</option>
+                <option>لغات</option>
+                <option>Excel</option>
+                <option>تسويق</option>
+                <option>مونتاج</option>
+                <option>مهارات وظيفية</option>
+                <option>موسيقى</option>
+              </select></div>
+            <div class="fg"><label>لغة التدريس</label><select id="r3Lng">
+                <option value="عربي">عربي</option>
+                <option value="إنجليزي">إنجليزي</option>
+                <option value="عربي وإنجليزي">عربي وإنجليزي</option>
+              </select></div>
+          </div>
+          <div class="fg"><label>مهاراتك (اضغط Enter)</label>
+            <div class="skbox" id="r3SkBox" onclick="document.getElementById('r3SkI').focus()"><input type="text"
+                id="r3SkI" onkeydown="hdlR3Sk(event)" placeholder="Python، React، Figma..." /></div>
+            <div class="fh">أضف 3-8 مهارات</div>
+          </div>
+          <div class="fg"><label>دولة الإقامة</label><input type="text" id="r3Cnt" placeholder="السعودية، مصر..." />
+          </div>
+          <div style="display:flex;gap:8px"><button class="btn btn-gh" style="flex:1" onclick="gRS(2)">←
+              رجوع</button><button class="btn btn-p" style="flex:2" onclick="gRS(4)">التالي ←</button></div>
+        </div>
+        <!-- Step 4: Availability -->
+        <div id="rS4" class="hidden">
+          <h2 class="mtitle">أوقاتك المتاحة</h2>
+          <p class="msub">حدد متى يمكن للطلاب الحجز معك</p>
+          <div class="avgrid" id="regAvGrid" style="gap:5px"></div>
+          <div style="font-size:.7rem;color:var(--muted);margin-top:8px;text-align:center">يمكنك التعديل لاحقاً من لوحة
+            التحكم</div>
+          <div style="display:flex;gap:8px;margin-top:15px"><button class="btn btn-gh" style="flex:1" onclick="gRS(3)">←
+              رجوع</button><button class="btn btn-p" style="flex:2" id="finRegBtn" onclick="doReg()">🎉 إنشاء
+              الحساب</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- LOGIN -->
+  <div id="loginMod" class="mov hidden" onclick="closeBg(event,'loginMod')">
+    <div class="modal" style="max-width:420px">
+      <button class="mc" onclick="closeM('loginMod')">✕</button>
+      <div class="mi">
+        <div class="mlogo">
+          <div class="logo">Skill<span>ak</span></div>
+        </div>
+        <h2 class="mtitle">مرحباً بعودتك 👋</h2>
+        <p class="msub">سجّل دخولك لمتابعة رحلة التعلم</p>
+        <button class="btn btn-o" style="width:100%;margin-bottom:10px" onclick="doGoogleLogin()">🔵 المتابعة بحساب Google</button>
+        <div id="loginErr" class="hidden"
+          style="background:var(--red2);color:var(--red);border-radius:var(--rsm);padding:11px 15px;font-size:.84rem;font-weight:600;margin-bottom:14px;border-right:3px solid var(--red)">
+        </div>
+        <div class="fg">
+          <label>📧 البريد الإلكتروني</label>
+          <input type="email" id="liE" placeholder="you@email.com"
+            onkeydown="if(event.key==='Enter')document.getElementById('liP').focus()" />
+        </div>
+        <div class="fg">
+          <label>🔒 كلمة المرور</label>
+          <div style="position:relative">
+            <input type="password" id="liP" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()" />
+            <button type="button" onclick="togPassVis('liP',this)"
+              style="position:absolute;left:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--muted);font-size:.85rem;padding:4px">👁</button>
+          </div>
+        </div>
+        <div style="text-align:left;margin-bottom:18px"><a
+            style="font-size:.78rem;color:var(--teal);cursor:pointer;font-weight:700" onclick="doFgt()">نسيت كلمة
+            المرور؟</a></div>
+        <button class="btn btn-p" style="width:100%;font-size:.96rem;padding:13px" id="liBtn" onclick="doLogin()">تسجيل
+          الدخول</button>
+        <p class="asw">ليس لديك حساب؟ <a onclick="switchM('loginMod','regMod')">أنشئ حساباً مجانياً</a></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- BOOKING CONFIRM -->
+  <div id="bkMod" class="mov hidden" onclick="closeBg(event,'bkMod')">
+    <div class="modal" style="max-width:440px">
+      <button class="mc" onclick="closeM('bkMod')">✕</button>
+      <div class="mi">
+        <h2 class="mtitle">تأكيد الحجز ✅</h2>
+        <p class="msub">راجع تفاصيل جلستك قبل الدفع</p>
+        <div class="cl"><span>👤 المعلم</span><strong id="bkTch">—</strong></div>
+        <div class="cl"><span>📅 التاريخ</span><strong id="bkDt">—</strong></div>
+        <div class="cl"><span>⏰ الوقت</span><strong id="bkTm">—</strong></div>
+        <div class="cl"><span>🎥 نوع الجلسة</span><strong>فيديو مباشر داخل المنصة</strong></div>
+        <div style="margin:13px 0">
+          <div class="pline"><span>💵 سعر الجلسة</span><span id="bkPrc"
+              style="font-weight:700;color:var(--teal)">—</span></div>
+          <div class="pline"><span id="bkFeeLabel">📊 رسوم الخدمة (10%)</span><span id="bkFee" style="color:var(--muted)">—</span></div>
+          <div class="pline"><span>💳 إجمالي يُخصم من محفظتك</span><span id="bkTot"
+              style="font-weight:900;color:var(--ink)">—</span></div>
+        </div>
+        <div class="cl" style="background:var(--green2)"><span>💰 رصيدك الحالي</span><strong id="bkBal"
+            style="color:var(--green)">—</strong></div>
+        <div id="bkInsuf" class="hidden"
+          style="background:var(--red2);color:var(--red);border-radius:var(--rxs);padding:9px 13px;font-size:.81rem;font-weight:600;margin:7px 0;text-align:center">
+          ❌ رصيد غير كافٍ — <a onclick="closeM('bkMod');go('wallet')"
+            style="color:var(--red);cursor:pointer;text-decoration:underline">اشحن محفظتك</a></div>
+        <div class="fg"><label>ملاحظة للمعلم (اختياري)</label><textarea id="bkNote" rows="3"
+            placeholder="ما الذي تريد التعلم تحديداً؟"></textarea></div>
+        <button class="btn btn-p" style="width:100%" id="bkBtn" onclick="confirmBk()">تأكيد الدفع والحجز</button>
+        <div style="margin-top:8px;font-size:.7rem;color:var(--muted);text-align:center">🔒 دفع آمن · يُعاد في حالة
+          الإلغاء</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- REVIEW -->
+  <div id="revMod" class="mov hidden" onclick="closeBg(event,'revMod')">
+    <div class="modal" style="max-width:440px">
+      <div class="mi" style="padding:0;overflow:hidden;border-radius:var(--r)">
+        <!-- Review header -->
+        <div
+          style="background:linear-gradient(135deg,var(--teal) 0%,var(--teal2) 100%);padding:28px 30px;text-align:center;position:relative">
+          <div style="font-size:3rem;margin-bottom:8px">🎉</div>
+          <div style="font-family:'Fraunces',serif;font-size:1.5rem;color:#fff;font-weight:900;margin-bottom:4px">انتهت
+            الجلسة!</div>
+          <div id="revSub" style="color:rgba(255,255,255,.75);font-size:.87rem">كيف كانت تجربتك؟</div>
+          <button class="mc" onclick="closeM('revMod')"
+            style="top:12px;left:12px;background:rgba(255,255,255,.15);color:#fff">✕</button>
+        </div>
+        <!-- Review body -->
+        <div style="padding:26px 28px">
+          <!-- Tutor card mini -->
+          <div id="revTutorInfo"
+            style="display:flex;align-items:center;gap:12px;background:var(--cream2);border-radius:var(--rsm);padding:12px 15px;margin-bottom:20px">
+          </div>
+          <!-- Stars -->
+          <div style="text-align:center;margin-bottom:18px">
+            <div style="font-size:.83rem;color:var(--muted);margin-bottom:10px;font-weight:600">كيف تقيّم المعلم؟</div>
+            <div class="starrow" style="justify-content:center;gap:10px">
+              <button class="sbtn" onclick="setSt(1)" title="ضعيف">★</button>
+              <button class="sbtn" onclick="setSt(2)" title="مقبول">★</button>
+              <button class="sbtn" onclick="setSt(3)" title="جيد">★</button>
+              <button class="sbtn" onclick="setSt(4)" title="جيد جداً">★</button>
+              <button class="sbtn" onclick="setSt(5)" title="ممتاز">★</button>
+            </div>
+            <div id="revStarLbl"
+              style="font-size:.78rem;color:var(--amber);font-weight:700;margin-top:6px;min-height:18px"></div>
+          </div>
+          <!-- Comment -->
+          <div style="margin-bottom:16px">
+            <label style="font-weight:700;font-size:.85rem;margin-bottom:7px;display:block">تعليقك على الجلسة
+              (اختياري)</label>
+            <textarea id="revCmt" rows="3" placeholder="ماذا تعلمت؟ كيف كان أسلوب المعلم؟ شاركنا تجربتك..."
+              style="resize:vertical;font-size:.87rem"></textarea>
+          </div>
+          <!-- Actions -->
+          <div style="display:flex;gap:9px">
+            <button class="btn btn-p" style="flex:1;font-size:.93rem" id="revSubBtn" onclick="subRev()">⭐ إرسال
+              التقييم</button>
+            <button class="btn btn-gh" style="flex:0 0 auto" onclick="closeM('revMod');go('dashboard')">تخطّ</button>
+          </div>
+          <p style="text-align:center;font-size:.72rem;color:var(--muted);margin-top:10px">تقييمك يساعد الطلاب الآخرين
+            ويؤثر على ترتيب المعلم 📊</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toastc">
+    <div class="toast" id="toast"></div>
+  </div>
+
+  <!-- ════════════════════════════════════════
+   APPLICATION JAVASCRIPT
+════════════════════════════════════════ -->
+
+
+  <!-- ══ PAYMOB CONFIG MODAL ══ -->
+  <div id="paymobCfgMod" class="mov hidden" onclick="closeBg(event,'paymobCfgMod')">
+    <div class="modal" style="max-width:480px">
+      <button class="mc" onclick="closeM('paymobCfgMod')">✕</button>
+      <div class="mi">
+        <div style="text-align:center;margin-bottom:18px">
+          <div style="font-size:2rem;margin-bottom:6px">💳</div>
+          <h2 class="mtitle" style="font-size:1.3rem">بيانات الدفع</h2>
+          <p class="msub" style="font-size:.82rem">معلومات حساب الاستلام للمنصة</p>
+        </div>
+        <div class="pay-info-box">
+          <div class="pib-row">
+            <span class="pib-label">رقم InstaPay</span>
+            <div style="display:flex;align-items:center;gap:8px">
+              <span class="pib-val" style="color:var(--teal);font-size:1.05rem;font-weight:900">01004989936</span>
+              <button class="pib-copy" onclick="cpyTxt('01004989936','الرقم')">نسخ</button>
+            </div>
+          </div>
+          <div class="pib-row">
+            <span class="pib-label">رقم فودافون كاش</span>
+            <div style="display:flex;align-items:center;gap:8px">
+              <span class="pib-val" style="color:var(--teal);font-size:1.05rem;font-weight:900">01004989936</span>
+              <button class="pib-copy" onclick="cpyTxt('01004989936','الرقم')">نسخ</button>
+            </div>
+          </div>
+          <div class="pib-row">
+            <span class="pib-label">اسم المستفيد</span>
+            <span class="pib-val">Skillak Platform</span>
+          </div>
+        </div>
+        <div
+          style="background:var(--teal3);border-radius:var(--rsm);padding:12px;font-size:.78rem;margin-top:10px;line-height:1.75">
+          💡 <strong>كيف يعمل النظام؟</strong><br>
+          1. العميل يحوّل المبلغ ويرسل رقم العملية<br>
+          2. الإدارة تتحقق وتعتمد الشحن يدوياً<br>
+          3. يُضاف الرصيد لمحفظة العميل فوراً
+        </div>
+        <button class="btn btn-p" style="width:100%;margin-top:16px" onclick="closeM('paymobCfgMod')">✓ حسناً</button>
+      </div>
+    </div>
+  </div>
+  <script src="script.js" defer></script>
+  <script src="patch.js" defer></script>
+  <script>
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js").catch(() => {}));
+    }
+  </script>
+</body>
+
+</html>
