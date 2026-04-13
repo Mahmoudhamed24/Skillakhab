@@ -565,7 +565,7 @@
       if (!CU) { openM('loginMod'); return; }
       if (!selDate) { showT('اختر تاريخاً أولاً', 'err'); return; }
       if (!selTime) { showT('اختر وقت الجلسة', 'err'); return; }
-      const t = curT, fee = +(t.price * 0.10).toFixed(2), tot = t.price + fee;
+      const t = curT, fee = +(t.price * (platformCommission / 100)).toFixed(2), tot = t.price + fee;
       document.getElementById('bkTch').textContent = t.name;
       document.getElementById('bkDt').textContent = selDate;
       document.getElementById('bkTm').textContent = timeLbl(selTime) || selTime;
@@ -588,7 +588,7 @@
       if (!selTime) { showT('اختر وقت الجلسة أولاً', 'err'); return; }
       if (!canBookTarget(t.id)) { showT('لا يمكنك الحجز مع نفسك أو كمعلّم فقط', 'err'); closeM('bkMod'); return; }
       if (btn) { btn.textContent = 'جاري الحجز...'; btn.disabled = true; }
-      const fee = +(t.price * 0.10).toFixed(2), tot = t.price + fee;
+      const fee = +(t.price * (platformCommission / 100)).toFixed(2), tot = t.price + fee;
       try {
         // Hold money from student wallet immediately
         await db.runTransaction(async tx => {
@@ -1033,7 +1033,12 @@
       if (refreshed.photo) { hdrAv.innerHTML = `<img src="${escapeHTML(refreshed.photo)}" style="width:38px;height:38px;border-radius:50%;object-fit:cover">`; }
       else { hdrAv.textContent = refreshed.emoji || refreshed.name?.[0] || '؟'; }
       hdrAv.style.background = bg;
-      document.getElementById('chatHdrName').textContent = refreshed.name || '—';
+      const chatHdrName = document.getElementById('chatHdrName');
+      if (chatHdrName) chatHdrName.textContent = refreshed.name || '—';
+      if (CP?.role === 'admin' && uid !== supportAdminUid) {
+        const chatHdrStatus = document.getElementById('chatHdrStatus');
+        if (chatHdrStatus) chatHdrStatus.textContent = 'دردشة مفتوحة من خدمة العملاء';
+      }
       setChatUiState(!!refreshed.chatAllowed, refreshed.chatStatus || 'لا توجد جلسة نشطة', !!refreshed.chatAllowed);
 
       document.querySelectorAll('.citem').forEach(el => el.classList.toggle('act', el.id === `ci-${uid}`));
@@ -1077,8 +1082,10 @@
           }
 
           const rtick = mine ? (m.read ? `<span class="rtick" title="مُقرأة">✓✓</span>` : `<span style="color:rgba(0,0,0,.35);font-size:.7rem">✓</span>`) : '';
+          const senderLabel = !mine ? (escapeHTML(m.senderName || (m.senderRole === 'support' ? 'خدمة العملاء' : '')) || '') : '';
           html += `<div class="mrow ${mine ? 'mine' : 'theirs'}">
         <div class="mbub ${mine ? 'mine' : 'theirs'}">
+          ${senderLabel ? `<div class="msender">${senderLabel}</div>` : ''}
           <div class="mtext">${escapeHTML(m.text || '')}</div>
           <div class="mtime"><span>${timeStr}</span>${rtick}</div>
         </div>
@@ -1106,9 +1113,13 @@
       const threadId = [CU.uid, curChatUid].sort().join('_');
       const tgt = allContacts[curChatUid] || {};
       try {
+        const isAdminSupport = CP?.role === 'admin';
         const payload = {
           threadId,
-          senderId: CU.uid, senderName: CP?.name || '—', senderPhoto: CP?.photo || '',
+          senderId: CU.uid,
+          senderName: isAdminSupport ? 'خدمة العملاء' : (CP?.name || '—'),
+          senderPhoto: CP?.photo || '',
+          senderRole: isAdminSupport ? 'support' : 'user',
           receiverId: curChatUid, receiverName: tgt.name || '—', receiverPhoto: tgt.photo || '',
           text, read: false,
           createdAt: firebase.firestore.FieldValue.serverTimestamp()
@@ -1844,7 +1855,7 @@
       el.innerHTML = `<div class="dashph" style="margin-bottom:20px">💰 الأرباح والإيرادات</div>
   <div class="srow" style="margin-bottom:20px">
     <div class="sc acc"><div class="scic">💵</div><div class="scval" style="font-size:1.5rem">${gross.toFixed(0)}</div><div class="sclbl">إجمالي الإيرادات (ج.م)</div></div>
-    <div class="sc"><div class="scic">💸</div><div class="scval" style="font-size:1.5rem">${fees.toFixed(0)}</div><div class="sclbl">عمولة المنصة 10%</div></div>
+    <div class="sc"><div class="scic">💸</div><div class="scval" style="font-size:1.5rem">${fees.toFixed(0)}</div><div class="sclbl">عمولة المنصة ${platformCommission}%</div></div>
     <div class="sc amb"><div class="scic">🏦</div><div class="scval" style="font-size:1.5rem">${net.toFixed(0)}</div><div class="sclbl">صافي الأرباح (ج.م)</div></div>
     <div class="sc"><div class="scic">💳</div><div class="scval" style="font-size:1.5rem">${walBalance.toFixed(0)}</div><div class="sclbl">رصيد المحفظة (ج.م)</div></div>
     <div class="sc"><div class="scic">📊</div><div class="scval" style="font-size:1.5rem">${comp.length}</div><div class="sclbl">جلسات مكتملة</div></div>
@@ -1948,7 +1959,7 @@
         bio: document.getElementById('editBio').value,
         country: document.getElementById('editCnt').value,
         lang: document.getElementById('editLng').value,
-        photo: document.getElementById('editPh').value
+        photo: selectedEditPhoto || document.getElementById('editPh').value
       };
       if (isTutor) {
         data.category = document.getElementById('editCat').value;
@@ -2059,7 +2070,7 @@
 
         const profile = {
           uid, email, phone, name: `${first} ${last}`.trim(),
-          role: regRole, bio: '', photo: '', skills: [], price: 0,
+          role: regRole, bio: '', photo: regPhotoData || '', skills: [], price: 0,
           lang: 'عربي', country: '', category: '', rating: 0,
           totalReviews: 0, totalSessions: 0,
           isApproved: !isTutor,
@@ -2212,7 +2223,7 @@
             <table class="dtbl" id="usersTbl"><thead><tr>
               <th>الاسم</th><th>البريد</th><th>الهاتف</th><th>الدور</th><th>التقييم</th><th>الجلسات</th><th>الحالة</th><th>إجراء</th>
             </tr></thead><tbody>
-            ${users.map(u => `<tr>
+            ${users.map(u => `<tr data-uid="${u.uid}" data-name="${(u.name || '—').replace(/"/g,'&quot;')}" data-photo="${(u.photo || '').replace(/"/g,'&quot;')}" data-color="${u.color || ''}" data-fg="${u.fgColor || ''}" data-emoji="${(u.emoji || (u.name?.[0] || '؟')).replace(/"/g,'&quot;')}">
               <td><strong>${u.name || '—'}</strong></td>
               <td style="font-size:.76rem;color:var(--muted)">${u.email || '—'}</td>
               <td style="font-size:.78rem">${u.phone || '—'}</td>
@@ -2872,1087 +2883,645 @@
   
 
 /* ============================================================
-   SKILLAK ENHANCEMENTS - UI/UX, CROPPER, GOOGLE, ROLES
+   Skillak Pro enhancements
    ============================================================ */
-(function(){
-  const ROLE_LABELS = {
-    learner: 'متعلم',
-    tutor: 'معلم',
-    both: 'الاثنان',
-    admin: 'مدير'
-  };
+var platformCommission = 10;
+var supportAdminUid = null;
+var regPhotoData = '';
+var selectedEditPhoto = '';
+var cropperInstance = null;
+var cropMode = '';
+var cropSource = '';
+var cropLivePreviewTimer = null;
+var currentAdminReportName = 'Skillak-Report';
 
-  const COUNTRY_LIST = [
-    ['مصر', '+20'], ['السعودية', '+966'], ['الإمارات', '+971'], ['الكويت', '+965'], ['قطر', '+974'],
-    ['البحرين', '+973'], ['عُمان', '+968'], ['الأردن', '+962'], ['فلسطين', '+970'], ['لبنان', '+961'],
-    ['سوريا', '+963'], ['العراق', '+964'], ['اليمن', '+967'], ['السودان', '+249'], ['ليبيا', '+218'],
-    ['الجزائر', '+213'], ['تونس', '+216'], ['المغرب', '+212'], ['موريتانيا', '+222'], ['جزر القمر', '+269'],
-    ['جيبوتي', '+253'], ['الصومال', '+252'], ['الولايات المتحدة', '+1'], ['المملكة المتحدة', '+44'],
-    ['فرنسا', '+33'], ['ألمانيا', '+49'], ['تركيا', '+90'], ['كندا', '+1'], ['أستراليا', '+61']
-  ];
+const ARAB_COUNTRIES = [
+  { name: 'اختر الدولة', code: '' },
+  { name: 'مصر', code: '+20' },
+  { name: 'السعودية', code: '+966' },
+  { name: 'الإمارات', code: '+971' },
+  { name: 'الكويت', code: '+965' },
+  { name: 'قطر', code: '+974' },
+  { name: 'البحرين', code: '+973' },
+  { name: 'عُمان', code: '+968' },
+  { name: 'الأردن', code: '+962' },
+  { name: 'العراق', code: '+964' },
+  { name: 'فلسطين', code: '+970' },
+  { name: 'لبنان', code: '+961' },
+  { name: 'سوريا', code: '+963' },
+  { name: 'اليمن', code: '+967' },
+  { name: 'المغرب', code: '+212' },
+  { name: 'الجزائر', code: '+213' },
+  { name: 'تونس', code: '+216' },
+  { name: 'ليبيا', code: '+218' },
+  { name: 'السودان', code: '+249' },
+  { name: 'موريتانيا', code: '+222' },
+  { name: 'جزر القمر', code: '+269' },
+  { name: 'جيبوتي', code: '+253' },
+  { name: 'الصومال', code: '+252' }
+];
 
-  const PHONE_CODES = COUNTRY_LIST.map(([name, code]) => ({ name, code }));
-  let platformCommissionRate = 10;
-  let activeCrop = null;
-  let cropModalReady = false;
-  let cropDragging = false;
-  let cropDragStart = { x: 0, y: 0 };
-  let cropState = { image: null, url: '', field: '', preview: '', scale: 1, offsetX: 0, offsetY: 0, rotate: 0, fileName: '' };
-  let _oldAdTab = typeof adTab === 'function' ? adTab : null;
-
-  function roleLabel(role) { return ROLE_LABELS[role] || role || '—'; }
-
-  function isHostedEnv() {
-    return ['http:', 'https:', 'chrome-extension:'].includes(location.protocol);
+function populateArabCountries() {
+  const countrySel = document.getElementById('r2Country');
+  const codeSel = document.getElementById('r2Code');
+  if (countrySel && countrySel.options.length <= 1) {
+    countrySel.innerHTML = ARAB_COUNTRIES.map(c => `<option value="${c.name}" ${c.name === 'اختر الدولة' ? 'selected' : ''}>${c.name}</option>`).join('');
   }
+  if (codeSel && codeSel.options.length <= 1) {
+    codeSel.innerHTML = ARAB_COUNTRIES.filter(c => c.code).map(c => `<option value="${c.code}">${c.code} — ${c.name}</option>`).join('');
+  }
+}
 
-  function isStorageAvailable() {
+window.syncPhoneCountry = function(countryId, codeId) {
+  const countryEl = document.getElementById(countryId);
+  const codeEl = document.getElementById(codeId);
+  if (!countryEl || !codeEl) return;
+  const row = ARAB_COUNTRIES.find(c => c.name === countryEl.value);
+  if (row?.code) {
+    const exists = Array.from(codeEl.options).some(o => o.value === row.code);
+    if (!exists) {
+      const opt = document.createElement('option');
+      opt.value = row.code;
+      opt.textContent = `${row.code} — ${row.name}`;
+      codeEl.appendChild(opt);
+    }
+    codeEl.value = row.code;
+  }
+};
+
+
+async function resolveSupportAdminUid() {
+  if (supportAdminUid) return supportAdminUid;
+  try {
+    const snap = await db.collection('users').where('role', '==', 'admin').limit(1).get();
+    if (!snap.empty) {
+      supportAdminUid = snap.docs[0].id;
+    }
+  } catch (e) { }
+  return supportAdminUid;
+}
+
+try {
+  db.collection('settings').doc('platform').onSnapshot(s => {
+    const d = s.exists ? s.data() : null;
+    const v = Number(d?.commissionRate ?? d?.commission ?? 10);
+    platformCommission = Number.isFinite(v) ? v : 10;
+    const el = document.getElementById('commissionRateView');
+    if (el) el.textContent = `${platformCommission}%`;
+    const inp = document.getElementById('commissionRateInput');
+    if (inp && document.activeElement !== inp) inp.value = platformCommission;
+    const feeLbl = document.getElementById('bkFeeLabel');
+    if (feeLbl) feeLbl.textContent = `📊 رسوم الخدمة (${platformCommission}%)`;
+  });
+} catch (e) {}
+
+function syncCropPreview(mode, dataUrl) {
+  const img = dataUrl ? `<img src="${dataUrl}" alt="preview">` : '';
+  if (mode === 'reg') {
+    regPhotoData = dataUrl || '';
+    const box = document.getElementById('r2PhotoPreview');
+    if (box) {
+      box.classList.toggle('hidden', !dataUrl);
+      box.innerHTML = img || '';
+    }
+  } else if (mode === 'edit') {
+    selectedEditPhoto = dataUrl || '';
+    const box = document.getElementById('editPhotoPreview');
+    if (box) {
+      box.classList.toggle('hidden', !dataUrl);
+      box.innerHTML = img || '';
+    }
+    prvEditAv();
+  }
+}
+
+function setCropPreviewLoading(text = 'جاري إعداد المعاينة...') {
+  const box = document.getElementById('cropLivePreview');
+  if (!box) return;
+  box.innerHTML = `<div class="crop-live-empty"><div class="spin spin-sm"></div><p>${text}</p></div>`;
+}
+
+function refreshCropLivePreview() {
+  const box = document.getElementById('cropLivePreview');
+  if (!box || !cropperInstance) return;
+  clearTimeout(cropLivePreviewTimer);
+  cropLivePreviewTimer = setTimeout(() => {
     try {
-      const x = '__skillak_test__';
-      localStorage.setItem(x, x);
-      localStorage.removeItem(x);
-      return true;
-    } catch { return false; }
-  }
-
-  function isGoogleAuthSupported() {
-    return isHostedEnv() && isStorageAvailable() && !!firebase?.auth;
-  }
-
-  function injectOnce(html, id) {
-    if (document.getElementById(id)) return;
-    const wrapper = document.createElement('div');
-    wrapper.innerHTML = html.trim();
-    document.body.appendChild(wrapper.firstElementChild);
-  }
-
-  function ensureEnhancementStyles() {
-    // No-op: styles are added in CSS file.
-  }
-
-  function enhanceRegLoginUi() {
-    const regStep1 = document.querySelector('#regMod #rS1');
-    if (regStep1 && !document.getElementById('skillakGoogleRegBtn')) {
-      const btn = document.createElement('button');
-      btn.id = 'skillakGoogleRegBtn';
-      btn.type = 'button';
-      btn.className = 'btn btn-o';
-      btn.style.cssText = 'width:100%;margin-top:12px;margin-bottom:8px;';
-      btn.innerHTML = '🔵 إنشاء / متابعة بحساب Google';
-      btn.onclick = () => doGoogleLogin('register');
-      const nextBtn = regStep1.querySelector('.btn.btn-p');
-      nextBtn?.insertAdjacentElement('beforebegin', btn);
+      const canvas = cropperInstance.getCroppedCanvas({
+        width: 420,
+        height: 420,
+        imageSmoothingQuality: 'high'
+      });
+      if (!canvas) return;
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+      box.innerHTML = `
+        <div class="crop-live-frame">
+          <img src="${dataUrl}" alt="crop preview">
+        </div>
+        <div class="crop-live-caption">المعاينة النهائية قبل الحفظ</div>
+      `;
+    } catch (e) {
+      setCropPreviewLoading('تعذر تحديث المعاينة');
     }
+  }, 80);
+}
 
-    const loginMi = document.querySelector('#loginMod .mi');
-    if (loginMi && !document.getElementById('skillakGoogleLoginHint')) {
-      const hint = document.createElement('div');
-      hint.id = 'skillakGoogleLoginHint';
-      hint.className = 'fh';
-      hint.style.cssText = 'text-align:center;margin:-4px 0 10px;line-height:1.7';
-      hint.textContent = 'إذا ظهر خطأ في Google، فتأكد أن الموقع يعمل عبر https أو localhost وليس file://';
-      const googleBtn = loginMi.querySelector('button.btn.btn-o');
-      googleBtn?.insertAdjacentElement('afterend', hint);
+function openCropModal(dataUrl, mode) {
+  cropMode = mode;
+  cropSource = dataUrl;
+  const image = document.getElementById('cropImage');
+  const zoom = document.getElementById('cropZoomRange');
+  if (!image) return;
+  image.src = dataUrl;
+  if (zoom) zoom.value = 1;
+  openM('cropMod');
+  setCropPreviewLoading();
+  setTimeout(() => {
+    try {
+      if (cropperInstance) cropperInstance.destroy();
+      cropperInstance = new Cropper(image, {
+        aspectRatio: 1,
+        viewMode: 2,
+        dragMode: 'move',
+        autoCropArea: 1,
+        responsive: true,
+        background: false,
+        scalable: true,
+        zoomable: true,
+        movable: true,
+        cropBoxResizable: true,
+        center: true,
+        modal: true,
+        highlight: false,
+        guides: true,
+        ready() {
+          try { cropperInstance.zoomTo(1); } catch (e) {}
+          refreshCropLivePreview();
+        },
+        crop() { refreshCropLivePreview(); },
+        zoom() { refreshCropLivePreview(); },
+        move() { refreshCropLivePreview(); },
+        rotate() { refreshCropLivePreview(); }
+      });
+    } catch (e) {
+      showT('تعذر فتح أداة قص الصورة', 'err');
     }
+  }, 80);
+}
+
+function handleImageInput(input, mode) {
+  const file = input?.files?.[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => openCropModal(reader.result, mode);
+  reader.readAsDataURL(file);
+}
+
+function rotateCrop(deg) {
+  if (cropperInstance) cropperInstance.rotate(deg);
+}
+function resetCrop() {
+  if (cropperInstance) cropperInstance.reset();
+}
+function setCropZoom(value) {
+  if (!cropperInstance) return;
+  const v = Number(value);
+  if (!Number.isFinite(v)) return;
+  const isStep = Math.abs(v) < 0.5;
+  if (isStep) {
+    cropperInstance.zoom(v);
+    const range = document.getElementById('cropZoomRange');
+    if (range) {
+      const current = Number(range.value || 1);
+      const next = Math.min(3, Math.max(0.8, current + v));
+      range.value = next.toFixed(2);
+    }
+  } else {
+    cropperInstance.zoomTo(v);
   }
+}
 
-  function fillCountrySelects() {
-    const regCountry = document.getElementById('r2Country');
-    const regCode = document.getElementById('r2Code');
-    if (regCountry && !regCountry.options.length) {
-      regCountry.innerHTML = COUNTRY_LIST.map(([name, code]) => `<option value="${name}" data-code="${code}">${name}</option>`).join('');
-    }
-    if (regCode && !regCode.options.length) {
-      regCode.innerHTML = PHONE_CODES.map(({ name, code }) => `<option value="${code}" data-country="${name}">${code} — ${name}</option>`).join('');
-    }
-    if (regCountry && regCode && !regCountry.value) {
-      regCountry.value = 'مصر';
-      syncPhoneCountry('r2Country', 'r2Code');
-    }
-
-    const editCnt = document.getElementById('editCnt');
-    if (editCnt && !editCnt.dataset.skillakEnhanced) {
-      editCnt.dataset.skillakEnhanced = '1';
-      editCnt.setAttribute('list', 'skillak-country-list');
-      if (!document.getElementById('skillak-country-list')) {
-        const dl = document.createElement('datalist');
-        dl.id = 'skillak-country-list';
-        dl.innerHTML = COUNTRY_LIST.map(([name]) => `<option value="${name}"></option>`).join('');
-        document.body.appendChild(dl);
-      }
-    }
+function applyCrop() {
+  if (!cropperInstance) return;
+  const canvas = cropperInstance.getCroppedCanvas({ width: 900, height: 900, imageSmoothingQuality: 'high' });
+  const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+  syncCropPreview(cropMode, dataUrl);
+  if (cropMode === 'edit') {
+    const editPh = document.getElementById('editPh');
+    if (editPh) editPh.value = dataUrl;
+  } else if (cropMode === 'reg') {
+    const r2 = document.getElementById('r2Img');
+    if (r2) r2.dataset.cropped = dataUrl;
   }
+  closeM('cropMod');
+}
 
-  window.syncPhoneCountry = function(countryId, codeId) {
-    const c = document.getElementById(countryId);
-    const d = document.getElementById(codeId);
-    if (!c || !d) return;
-    const selected = COUNTRY_LIST.find(([name]) => name === c.value) || COUNTRY_LIST[0];
-    d.value = selected[1];
-  };
+// Guards for signed-in users
+const _skillakOpenM = window.openM;
+window.openM = function(id) {
+  if (id === 'regMod' && CU) {
+    showT('لديك حساب بالفعل. لا يمكنك إنشاء حساب جديد أو التسجيل كمعلم/متعلم مرة أخرى.', 'err');
+    return;
+  }
+  return _skillakOpenM(id);
+};
 
-  function ensureCropModal() {
-    if (cropModalReady) return;
-    cropModalReady = true;
-    injectOnce(`
-      <div id="skillakCropMod" class="mov hidden" style="z-index:10020">
-        <div class="modal skillak-crop-modal">
-          <button class="mc" id="skillakCropClose" type="button">✕</button>
-          <div class="skillak-crop-shell">
-            <div class="skillak-crop-canvas-wrap">
-              <div class="skillak-crop-head">
-                <div>
-                  <div class="skillak-crop-title">قص وتعديل الصورة</div>
-                  <div class="skillak-crop-sub">حرّك الصورة أو كبّرها حتى تصل للشكل المناسب للبروفايل</div>
-                </div>
-                <div class="skillak-crop-badges">
-                  <span>مناسب للموبايل</span>
-                  <span>مناسب للكمبيوتر</span>
-                </div>
-              </div>
-              <div class="skillak-crop-stage">
-                <canvas id="skillakCropCanvas" width="840" height="840"></canvas>
-                <div class="skillak-crop-grid"></div>
-              </div>
-              <div class="skillak-crop-actions">
-                <button type="button" class="btn btn-gh btn-sm" id="skillakCropZoomOut">-</button>
-                <input type="range" id="skillakCropZoom" min="1" max="3.5" step="0.01" value="1.2">
-                <button type="button" class="btn btn-gh btn-sm" id="skillakCropZoomIn">+</button>
-                <button type="button" class="btn btn-gh btn-sm" id="skillakCropRotate">⟳ تدوير</button>
-                <button type="button" class="btn btn-gh btn-sm" id="skillakCropReset">↺ إعادة</button>
-              </div>
+const _skillakOpenRegAs = window.openRegAs;
+window.openRegAs = function(role) {
+  if (CU) {
+    showT('لديك حساب بالفعل. لا يمكن فتح التسجيل مرة أخرى.', 'err');
+    return;
+  }
+  return _skillakOpenRegAs(role);
+};
+
+const _skillakGo = window.go;
+window.go = function(name) {
+  document.querySelectorAll('.page').forEach(el => el.classList.add('hidden'));
+  return _skillakGo(name);
+};
+
+const _skillakPrvEditAv = window.prvEditAv;
+window.prvEditAv = function() {
+  const url = selectedEditPhoto || document.getElementById('editPh')?.value || '';
+  const el = document.getElementById('editAvPr');
+  if (!el) return;
+  if (url) { el.innerHTML = `<img src="${url}">`; }
+  else { el.textContent = CP?.name?.[0] || 'أ'; el.style.background = CP?.color || 'var(--amber)'; }
+};
+
+const _skillakLoadEditProf = window.loadEditProf;
+window.loadEditProf = async function() {
+  await _skillakLoadEditProf();
+  selectedEditPhoto = document.getElementById('editPh')?.value || '';
+  syncCropPreview('edit', selectedEditPhoto || '');
+};
+
+// Google login with profile completion
+window.doGoogleLogin = async function() {
+  const provider = new firebase.auth.GoogleAuthProvider();
+  provider.setCustomParameters({ prompt: 'select_account' });
+  const btns = Array.from(document.querySelectorAll('[onclick="doGoogleLogin()"]'));
+  btns.forEach(b => { b.disabled = true; });
+  try {
+    const result = await auth.signInWithPopup(provider);
+    const user = result.user;
+    const ref = db.collection('users').doc(user.uid);
+    const snap = await ref.get();
+    if (!snap.exists) {
+      const name = user.displayName || (user.email ? user.email.split('@')[0] : 'مستخدم');
+      const profile = {
+        uid: user.uid,
+        email: user.email || '',
+        name,
+        phone: '',
+        role: 'learner',
+        bio: '',
+        photo: user.photoURL || '',
+        skills: [],
+        price: 0,
+        lang: 'عربي',
+        country: '',
+        category: '',
+        rating: 0,
+        totalReviews: 0,
+        totalSessions: 0,
+        isApproved: true,
+        provider: 'google',
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      };
+      await ref.set(profile, { merge: true });
+      await db.collection('wallets').doc(user.uid).set({ balance: 0, userId: user.uid }, { merge: true });
+      CP = profile;
+      await loadWal();
+      updNavU();
+      showT('تم تسجيل الدخول بحساب Google. أكمل بياناتك من صفحة تعديل الملف الشخصي.', 'suc');
+      closeM('loginMod');
+      go('editProfile');
+      return;
+    }
+    closeM('loginMod');
+    showT('مرحباً بك مجدداً 👋', 'suc');
+    go('dashboard');
+  } catch (err) {
+    showT('تعذر تسجيل الدخول عبر Google: ' + (err?.message || err), 'err');
+  } finally {
+    btns.forEach(b => { b.disabled = false; });
+  }
+};
+
+// Support chat pin + admin thread
+async function ensureSupportThreadPin() {
+  await resolveSupportAdminUid();
+  const list = document.getElementById('contactsList');
+  if (!list || !supportAdminUid) return;
+  const existing = document.getElementById(`ci-${supportAdminUid}`);
+  if (existing) {
+    existing.classList.add('support-pin');
+    const nm = existing.querySelector('.ciname');
+    const pr = existing.querySelector('.ciprev');
+    if (nm) nm.textContent = 'خدمة العملاء';
+    if (pr) pr.textContent = 'محادثة مفتوحة مع الدعم';
+    return;
+  }
+  const item = document.createElement('div');
+  item.id = `ci-${supportAdminUid}`;
+  item.className = 'citem support-pin';
+  item.style.cursor = 'pointer';
+  const photo = CP?.supportPhoto || '';
+  const name = 'خدمة العملاء';
+  const emoji = '🛟';
+  item.innerHTML = `
+    <div class="ciav" style="background:linear-gradient(135deg,rgba(13,110,117,.22),rgba(245,158,11,.22))">${photo ? `<img src="${photo}" style="width:46px;height:46px;border-radius:50%;object-fit:cover">` : `<span style="font-weight:900;font-family:'Fraunces',serif">${emoji}</span>`}</div>
+    <div class="ciinfo"><div class="ciname">${name}</div><div class="ciprev">تحدث مع فريق الدعم</div></div>
+    <div class="citime">—</div>
+  `;
+  item.onclick = () => openConv(supportAdminUid);
+  list.prepend(item);
+}
+
+const _skillakLoadContacts = window.loadContacts;
+window.loadContacts = async function() {
+  await _skillakLoadContacts();
+  await ensureSupportThreadPin();
+};
+
+const _skillakRenderContacts = window.renderContacts;
+window.renderContacts = function(list) {
+  _skillakRenderContacts(list);
+  ensureSupportThreadPin().catch(() => {});
+};
+
+const _skillakRefreshChatState = window.refreshChatState;
+window.refreshChatState = async function(otherUid) {
+  await resolveSupportAdminUid();
+  if (CP?.role === 'admin' && otherUid && otherUid !== CU?.uid) {
+    const rel = allContacts[otherUid] || { uid: otherUid };
+    rel.latestBooking = null;
+    rel.chatAllowed = true;
+    rel.chatStatus = 'دردشة مفتوحة مع العملاء';
+    rel.isSupportConversation = true;
+    allContacts[otherUid] = rel;
+    return rel;
+  }
+  if (otherUid && supportAdminUid && otherUid === supportAdminUid) {
+    const rel = allContacts[otherUid] || { uid: otherUid };
+    rel.latestBooking = null;
+    rel.chatAllowed = true;
+    rel.chatStatus = 'خدمة العملاء متاحة الآن';
+    rel.name = 'خدمة العملاء';
+    rel.emoji = '🛟';
+    allContacts[otherUid] = rel;
+    return rel;
+  }
+  return _skillakRefreshChatState(otherUid);
+};
+
+// Admin users rows => add direct chat button
+function enhanceAdminUserRows() {
+  document.querySelectorAll('#usersTbl tbody tr').forEach(row => {
+    const uid = row.getAttribute('data-uid');
+    if (!uid) return;
+    const actionTd = row.querySelector('td:last-child');
+    if (!actionTd || actionTd.querySelector('.adm-chat-btn')) return;
+    const name = row.getAttribute('data-name') || '—';
+    const photo = row.getAttribute('data-photo') || '';
+    const color = row.getAttribute('data-color') || '';
+    const fg = row.getAttribute('data-fg') || '';
+    const emoji = row.getAttribute('data-emoji') || '؟';
+    const btn = document.createElement('button');
+    btn.className = 'btn btn-o btn-xs adm-chat-btn';
+    btn.textContent = '💬 شات';
+    btn.onclick = () => openChatWith(uid, name, photo, color, fg, emoji);
+    actionTd.prepend(btn);
+  });
+}
+
+const _skillakAdTab = window.adTab;
+window.adTab = async function(tab, el) {
+  const out = await _skillakAdTab(tab, el);
+  if (tab === 'users') setTimeout(enhanceAdminUserRows, 30);
+  if (tab === 'commission') {
+    const con = document.getElementById('adCon');
+    const current = Number.isFinite(platformCommission) ? platformCommission : 10;
+    con.innerHTML = `
+      <div class="ad-panel">
+        <div class="ad-panel-hd">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+            <div>
+              <span class="sl" style="margin-bottom:6px">العمولة</span>
+              <h3 style="margin:0;font-family:'Fraunces',serif">التحكم في نسبة المنصة</h3>
             </div>
-            <div class="skillak-crop-side">
-              <div class="skillak-crop-preview-wrap">
-                <div class="skillak-crop-preview-label">معاينة البروفايل</div>
-                <div class="skillak-crop-preview"><canvas id="skillakCropPreview" width="280" height="280"></canvas></div>
-              </div>
-              <div class="skillak-crop-info">
-                <div>اسحب داخل الصورة لتحريكها.</div>
-                <div>استخدم التكبير للوصول إلى أفضل قص.</div>
-                <div>بعد الحفظ سيتم تحديث الصورة فوراً.</div>
-              </div>
-              <div class="skillak-crop-footer">
-                <button type="button" class="btn btn-gh" id="skillakCropCancel">إلغاء</button>
-                <button type="button" class="btn btn-p" id="skillakCropApply">حفظ الصورة</button>
-              </div>
-            </div>
+            <span class="pill pc">الحالية: <strong id="commissionRateView">${current}%</strong></span>
           </div>
+        </div>
+        <div class="cb">
+          <div class="ad-grid" style="margin-bottom:14px">
+            <div class="ad-card"><strong>نسبة الخصم</strong><div class="num">${current}%</div><div style="font-size:.8rem;color:var(--muted)">تُطبق على الحجوزات الجديدة فقط</div></div>
+            <div class="ad-card"><strong>أرباح المنصة</strong><div class="num">تلقائي</div><div style="font-size:.8rem;color:var(--muted)">تتحدث حسب النسبة المحفوظة</div></div>
+          </div>
+          <div class="fr" style="align-items:end">
+            <div class="fg" style="margin-bottom:0">
+              <label>نسبة العمولة %</label>
+              <input type="number" id="commissionRateInput" min="0" max="100" step="0.5" value="${current}" />
+            </div>
+            <button class="btn btn-p" onclick="saveCommissionRate()">💾 حفظ العمولة</button>
+          </div>
+          <div id="commissionMsg" class="fh" style="margin-top:10px">يمكنك رفع أو خفض النسبة في أي وقت.</div>
+        </div>
+      </div>`;
+  }
+  if (tab === 'reports') {
+    const con = document.getElementById('adCon');
+    const usersSnap = await db.collection('users').orderBy('createdAt', 'desc').get().catch(() => ({ docs: [] }));
+    const users = usersSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const firstId = users[0]?.id || '';
+    con.innerHTML = `
+      <div class="ad-panel">
+        <div class="ad-panel-hd">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+            <div>
+              <span class="sl" style="margin-bottom:6px">التقارير</span>
+              <h3 style="margin:0;font-family:'Fraunces',serif">تقرير كامل للمستخدمين والمعاملات</h3>
+            </div>
+            <button class="btn btn-o btn-sm" onclick="downloadAdminReportPdf()">⬇️ تحميل PDF</button>
+          </div>
+        </div>
+        <div class="cb">
+          <div class="fg">
+            <label>اختر المستخدم</label>
+            <select id="reportUserSel" onchange="buildAdminReport(this.value)">
+              ${users.map(u => `<option value="${u.id}" ${u.id === firstId ? 'selected' : ''}>${u.name || u.email || u.id}</option>`).join('')}
+            </select>
+          </div>
+          <div id="adminReportCard" class="ad-report"></div>
+        </div>
+      </div>`;
+    if (firstId) buildAdminReport(firstId);
+  }
+  return out;
+};
+
+window.saveCommissionRate = async function() {
+  const inp = document.getElementById('commissionRateInput');
+  const msg = document.getElementById('commissionMsg');
+  const v = Number(inp?.value);
+  if (!Number.isFinite(v) || v < 0 || v > 100) {
+    if (msg) msg.textContent = 'أدخل نسبة صحيحة بين 0 و 100.';
+    showT('أدخل نسبة صحيحة بين 0 و100', 'err');
+    return;
+  }
+  try {
+    await db.collection('settings').doc('platform').set({ commissionRate: v, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+    platformCommission = v;
+    if (msg) msg.textContent = `تم حفظ العمولة بنجاح: ${v}%`;
+    showT(`تم تحديث العمولة إلى ${v}%`, 'suc');
+    const rateEl = document.getElementById('commissionRateView');
+    if (rateEl) rateEl.textContent = `${v}%`;
+  } catch (e) {
+    showT('تعذر حفظ العمولة: ' + e.message, 'err');
+  }
+};
+
+async function buildAdminReport(uid) {
+  const card = document.getElementById('adminReportCard');
+  if (!card || !uid) return;
+  card.innerHTML = '<div style="text-align:center;padding:24px"><div class="spin" style="margin:0 auto 10px"></div><div style="color:var(--muted)">جاري تجهيز التقرير...</div></div>';
+  try {
+    const [userSnap, b1, b2, txSnap, wdSnap, paySnap] = await Promise.all([
+      db.collection('users').doc(uid).get(),
+      db.collection('bookings').where('studentId', '==', uid).get().catch(() => ({ docs: [] })),
+      db.collection('bookings').where('tutorId', '==', uid).get().catch(() => ({ docs: [] })),
+      db.collection('transactions').where('userId', '==', uid).get().catch(() => ({ docs: [] })),
+      db.collection('withdrawalRequests').where('userId', '==', uid).get().catch(() => ({ docs: [] })),
+      db.collection('paymentRequests').where('userId', '==', uid).get().catch(() => ({ docs: [] }))
+    ]);
+    const u = userSnap.exists ? userSnap.data() : {};
+    currentAdminReportName = u.name || u.email || uid || 'Skillak-Report';
+    const bookings = [...(b1.docs || []), ...(b2.docs || [])].map(d => ({ id: d.id, ...d.data() }));
+    const txs = (txSnap.docs || []).map(d => ({ id: d.id, ...d.data() }));
+    const withdrawals = (wdSnap.docs || []).map(d => ({ id: d.id, ...d.data() }));
+    const payments = (paySnap.docs || []).map(d => ({ id: d.id, ...d.data() }));
+    const completed = bookings.filter(b => b.status === 'completed').length;
+    const pending = bookings.filter(b => b.status === 'pending').length;
+    const cancelled = bookings.filter(b => ['cancelled', 'rejected'].includes(b.status)).length;
+    const refunded = bookings.filter(b => b.status === 'refunded').length;
+    const spent = txs.filter(t => t.type === 'debit').reduce((s, t) => s + Number(t.amount || 0), 0);
+    const earned = txs.filter(t => t.type === 'credit').reduce((s, t) => s + Number(t.amount || 0), 0);
+    const wBalSnap = await db.collection('wallets').doc(uid).get().catch(() => null);
+    const balance = Number(wBalSnap?.data()?.balance || 0);
+    const role = { learner: 'متعلم', tutor: 'معلم', both: 'متعلم ومعلم', admin: 'مدير' }[u.role] || (u.role || '—');
+    const lastTx = txs[0]?.createdAt?.toDate ? txs[0].createdAt.toDate().toLocaleDateString('ar-EG') : '—';
+    card.innerHTML = `
+      <div class="report-hero">
+        <div>
+          <span class="sl" style="margin-bottom:6px">التقرير الشامل</span>
+          <h3 class="report-title">${u.name || '—'}</h3>
+          <div class="report-sub">ملف عربي منظم يوضح كل البيانات والمعاملات والجلسات والسحوبات والشحنات.</div>
+        </div>
+        <div class="report-badge">${role}</div>
+      </div>
+      <div class="report-meta" style="margin:16px 0 14px">
+        <div class="rm"><span>الاسم</span><strong>${u.name || '—'}</strong></div>
+        <div class="rm"><span>البريد</span><strong>${u.email || '—'}</strong></div>
+        <div class="rm"><span>الدور</span><strong>${role}</strong></div>
+        <div class="rm"><span>الرصيد الحالي</span><strong>${balance.toFixed(2)} ج.م</strong></div>
+        <div class="rm"><span>آخر معاملة</span><strong>${lastTx}</strong></div>
+        <div class="rm"><span>العمولة الحالية</span><strong>${platformCommission}%</strong></div>
+      </div>
+      <div class="ad-grid" style="margin-bottom:14px">
+        <div class="ad-card"><strong>الجلسات</strong><div class="num">${bookings.length}</div><div style="font-size:.8rem;color:var(--muted)">مكتملة: ${completed}</div></div>
+        <div class="ad-card"><strong>المعلقة</strong><div class="num">${pending}</div><div style="font-size:.8rem;color:var(--muted)">مرفوضة/ملغاة: ${cancelled}</div></div>
+        <div class="ad-card"><strong>المستردة</strong><div class="num">${refunded}</div><div style="font-size:.8rem;color:var(--muted)">كل العمليات المرتبطة</div></div>
+        <div class="ad-card"><strong>المعاملات</strong><div class="num">${txs.length}</div><div style="font-size:.8rem;color:var(--muted)">إجمالي الشحن/السحب/الحجز</div></div>
+      </div>
+      <div class="report-meta" style="margin-bottom:14px">
+        <div class="rm"><span>إجمالي الشحن</span><strong>${payments.reduce((s, x) => s + Number(x.amount || 0), 0).toFixed(2)} ج.م</strong></div>
+        <div class="rm"><span>إجمالي السحب</span><strong>${withdrawals.reduce((s, x) => s + Number(x.amount || 0), 0).toFixed(2)} ج.م</strong></div>
+        <div class="rm"><span>إجمالي الإنفاق</span><strong>${spent.toFixed(2)} ج.م</strong></div>
+        <div class="rm"><span>إجمالي الأرباح</span><strong>${earned.toFixed(2)} ج.م</strong></div>
+      </div>
+      <div class="card" style="border-radius:18px;overflow:hidden;margin-bottom:14px">
+        <div class="ch"><div class="ct">سجل الجلسات</div><div class="pill pc">${bookings.length} سجل</div></div>
+        <div class="cb" style="padding:0;overflow:auto;max-height:300px">
+          <table class="dtbl" style="min-width:760px"><thead><tr><th>النوع</th><th>التاريخ</th><th>الحالة</th><th>المبلغ</th><th>المعلم/الطالب</th></tr></thead><tbody>
+            ${bookings.map(b => `<tr><td>${b.studentId === uid ? 'حجز كطالب' : 'جلسة كمعلم'}</td><td>${b.date || '—'} ${b.timeLbl || b.time || ''}</td><td><span class="pill ${b.status === 'completed' ? 'pc' : b.status === 'refunded' ? 'pco' : b.status === 'cancelled' ? 'pca' : 'pp'}">${b.status || '—'}</span></td><td>${Number(b.total || b.price || 0).toFixed(2)} ج.م</td><td>${b.studentId === uid ? (b.tutorName || '—') : (b.studentName || '—')}</td></tr>`).join('')}
+          </tbody></table>
         </div>
       </div>
-    `, 'skillakCropMod');
-
-    const close = () => closeM('skillakCropMod');
-    document.getElementById('skillakCropClose')?.addEventListener('click', close);
-    document.getElementById('skillakCropCancel')?.addEventListener('click', close);
-    document.getElementById('skillakCropApply')?.addEventListener('click', applySkillakCrop);
-
-    const canvas = document.getElementById('skillakCropCanvas');
-    const zoom = document.getElementById('skillakCropZoom');
-    const zoomIn = document.getElementById('skillakCropZoomIn');
-    const zoomOut = document.getElementById('skillakCropZoomOut');
-    const rotate = document.getElementById('skillakCropRotate');
-    const reset = document.getElementById('skillakCropReset');
-
-    const bindDrag = (target) => {
-      target.addEventListener('pointerdown', (e) => {
-        cropDragging = true;
-        cropDragStart = { x: e.clientX - cropState.offsetX, y: e.clientY - cropState.offsetY };
-        target.setPointerCapture(e.pointerId);
-      });
-      target.addEventListener('pointermove', (e) => {
-        if (!cropDragging) return;
-        cropState.offsetX = e.clientX - cropDragStart.x;
-        cropState.offsetY = e.clientY - cropDragStart.y;
-        renderSkillakCrop();
-      });
-      target.addEventListener('pointerup', () => { cropDragging = false; });
-      target.addEventListener('pointercancel', () => { cropDragging = false; });
-    };
-    if (canvas && !canvas.dataset.bound) {
-      canvas.dataset.bound = '1';
-      bindDrag(canvas);
-      bindDrag(document.getElementById('skillakCropPreview'));
-    }
-    zoom?.addEventListener('input', () => { cropState.scale = parseFloat(zoom.value) || 1; renderSkillakCrop(); });
-    zoomIn?.addEventListener('click', () => { cropState.scale = Math.min(3.5, (cropState.scale || 1) + 0.12); if (zoom) zoom.value = cropState.scale; renderSkillakCrop(); });
-    zoomOut?.addEventListener('click', () => { cropState.scale = Math.max(1, (cropState.scale || 1) - 0.12); if (zoom) zoom.value = cropState.scale; renderSkillakCrop(); });
-    rotate?.addEventListener('click', () => { cropState.rotate = (cropState.rotate + 90) % 360; renderSkillakCrop(); });
-    reset?.addEventListener('click', () => {
-      cropState.scale = 1.2; cropState.offsetX = 0; cropState.offsetY = 0; cropState.rotate = 0;
-      if (zoom) zoom.value = cropState.scale; renderSkillakCrop();
-    });
-  }
-
-  function openSkillakCrop(file, fieldId, previewId) {
-    if (!file) return;
-    ensureCropModal();
-    cropState.field = fieldId;
-    cropState.preview = previewId;
-    cropState.fileName = file.name || '';
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      cropState.url = ev.target.result;
-      const img = new Image();
-      img.onload = () => {
-        cropState.image = img;
-        cropState.scale = 1.2;
-        cropState.offsetX = 0;
-        cropState.offsetY = 0;
-        cropState.rotate = 0;
-        const zoom = document.getElementById('skillakCropZoom');
-        if (zoom) zoom.value = cropState.scale;
-        openM('skillakCropMod');
-        renderSkillakCrop();
-      };
-      img.src = cropState.url;
-    };
-    reader.readAsDataURL(file);
-  }
-
-  function drawSkillakCrop(canvas, preview = false) {
-    if (!canvas || !cropState.image) return;
-    const ctx = canvas.getContext('2d');
-    const size = canvas.width;
-    const img = cropState.image;
-    ctx.clearRect(0, 0, size, size);
-    ctx.fillStyle = '#f8fafc';
-    ctx.fillRect(0, 0, size, size);
-
-    const baseScale = Math.max(size / img.width, size / img.height);
-    const scale = baseScale * cropState.scale;
-    const dw = img.width * scale;
-    const dh = img.height * scale;
-    const x = size / 2 + cropState.offsetX;
-    const y = size / 2 + cropState.offsetY;
-
-    ctx.save();
-    ctx.translate(x, y);
-    ctx.rotate((cropState.rotate * Math.PI) / 180);
-    ctx.drawImage(img, -dw / 2, -dh / 2, dw, dh);
-    ctx.restore();
-
-    // Mask and guides
-    if (!preview) {
-      ctx.save();
-      ctx.fillStyle = 'rgba(0,0,0,.22)';
-      ctx.beginPath();
-      ctx.rect(0, 0, size, size);
-      ctx.arc(size / 2, size / 2, size * 0.40, 0, Math.PI * 2, true);
-      ctx.fill('evenodd');
-      ctx.restore();
-      ctx.strokeStyle = 'rgba(13,110,117,.8)';
-      ctx.lineWidth = 4;
-      ctx.strokeRect(size * 0.10, size * 0.10, size * 0.80, size * 0.80);
-    }
-  }
-
-  function renderSkillakCrop() {
-    const canvas = document.getElementById('skillakCropCanvas');
-    const preview = document.getElementById('skillakCropPreview');
-    if (!canvas || !preview || !cropState.image) return;
-    drawSkillakCrop(canvas, false);
-    drawSkillakCrop(preview, true);
-  }
-
-  async function applySkillakCrop() {
-    const canvas = document.getElementById('skillakCropCanvas');
-    if (!canvas || !cropState.image) return;
-    const out = canvas.toDataURL('image/jpeg', 0.94);
-    const target = document.getElementById(cropState.field);
-    const preview = document.getElementById(cropState.preview);
-    if (target) target.value = out;
-    if (preview) {
-      preview.innerHTML = `<img src="${out}" alt="profile image">`;
-      preview.classList.add('has-img');
-    }
-    closeM('skillakCropMod');
-    showT('✅ تم تحديث الصورة', 'suc');
-    if (typeof prvEditAv === 'function') prvEditAv();
-  }
-
-  function connectProfileUploads() {
-    const regInput = document.getElementById('r2Img');
-    const editInput = document.getElementById('editImg');
-    if (regInput && !regInput.dataset.skillakBound) {
-      regInput.dataset.skillakBound = '1';
-      regInput.addEventListener('change', (e) => {
-        const f = e.target.files?.[0];
-        if (!f) return;
-        openSkillakCrop(f, 'r2PhotoData', 'r2PhotoPreview');
-        e.target.value = '';
-      });
-    }
-    if (editInput && !editInput.dataset.skillakBound) {
-      editInput.dataset.skillakBound = '1';
-      editInput.addEventListener('change', (e) => {
-        const f = e.target.files?.[0];
-        if (!f) return;
-        openSkillakCrop(f, 'editPhotoData', 'editAvPr');
-        e.target.value = '';
-      });
-    }
-
-    const editBox = document.querySelector('#page-editProfile .avupld');
-    if (editBox && !document.getElementById('editPhotoData')) {
-      const hidden = document.createElement('input');
-      hidden.type = 'hidden'; hidden.id = 'editPhotoData'; hidden.value = '';
-      editBox.appendChild(hidden);
-    }
-    const regStep2 = document.getElementById('rS2');
-    if (regStep2 && !document.getElementById('r2PhotoData')) {
-      const hidden = document.createElement('input');
-      hidden.type = 'hidden'; hidden.id = 'r2PhotoData'; hidden.value = '';
-      regStep2.appendChild(hidden);
-      const preview = document.createElement('div');
-      preview.id = 'r2PhotoPreview';
-      preview.className = 'skillak-photo-preview';
-      preview.innerHTML = '<span>لا توجد صورة بعد</span>';
-      const fileBox = regStep2.querySelector('#r2Img')?.closest('.fg');
-      fileBox?.appendChild(preview);
-    }
-  }
-
-  function updateRoleVisibility() {
-    const role = CP?.role || 'learner';
-    const topupCard = document.getElementById('topupCard');
-    const withdrawCard = document.getElementById('withdrawCard');
-    const canTopup = role !== 'tutor';
-    const canWithdraw = role !== 'learner';
-    if (topupCard) topupCard.style.display = canTopup ? '' : 'none';
-    if (withdrawCard) withdrawCard.style.display = canWithdraw ? 'block' : 'none';
-    return { canTopup, canWithdraw };
-  }
-
-  async function loadPlatformSettings() {
-    try {
-      const s = await db.collection('settings').doc('platform').get();
-      if (s.exists) {
-        const data = s.data() || {};
-        const rate = Number(data.commissionRate ?? data.platformCommissionRate ?? 10);
-        platformCommissionRate = Number.isFinite(rate) ? rate : 10;
-        const lbl = document.getElementById('admPlatformCommission');
-        if (lbl) lbl.textContent = `${platformCommissionRate}%`;
-      }
-    } catch (e) {
-      console.warn('settings load failed', e?.message || e);
-    }
-  }
-
-  function calcFee(amount) {
-    return +((Number(amount || 0) * platformCommissionRate) / 100).toFixed(2);
-  }
-
-  function currentUserCanTopup() { return (CP?.role || 'learner') !== 'tutor'; }
-  function currentUserCanWithdraw() { return (CP?.role || 'learner') !== 'learner'; }
-
-  function openRegAs(role) {
-    if (CU) {
-      showT('أنت مسجّل بالفعل. استخدم الحساب الحالي من لوحة التحكم.', 'inf');
-      go('dashboard');
-      return;
-    }
-    if (role === 'tutor' && CP?.role === 'learner') {
-      showT('أنت تملك حساباً بالفعل كمتعلم، ولا يمكن إنشاء حساب معلم جديد من نفس الجلسة.', 'err');
-      return;
-    }
-    if (typeof pickRole === 'function') pickRole(role);
-    openM('regMod');
-  }
-  window.openRegAs = openRegAs;
-
-  async function doGoogleLogin(mode = 'login') {
-    if (!isGoogleAuthSupported()) {
-      showT('تسجيل Google يتطلب تشغيل الموقع عبر https أو localhost مع تفعيل Web Storage. افتح المشروع عبر Firebase Hosting أو Live Server.', 'err');
-      return;
-    }
-    const provider = new firebase.auth.GoogleAuthProvider();
-    provider.setCustomParameters({ prompt: 'select_account' });
-    try {
-      const res = await auth.signInWithPopup(provider);
-      const user = res.user;
-      if (!user) return;
-      const ref = db.collection('users').doc(user.uid);
-      const snap = await ref.get();
-      if (!snap.exists) {
-        const initialRole = (mode === 'register' ? (typeof regRole !== 'undefined' ? regRole : 'learner') : 'learner');
-        const first = (user.displayName || user.email || 'مستخدم').split(' ')[0];
-        const last = (user.displayName || '').split(' ').slice(1).join(' ');
-        const profile = {
-          uid: user.uid,
-          email: user.email || '',
-          phone: '',
-          name: user.displayName || first,
-          role: initialRole,
-          bio: '',
-          photo: user.photoURL || '',
-          skills: [],
-          price: 0,
-          lang: 'عربي',
-          country: '',
-          category: '',
-          rating: 0,
-          totalReviews: 0,
-          totalSessions: 0,
-          isApproved: initialRole !== 'tutor',
-          createdAt: firebase.firestore.FieldValue.serverTimestamp()
-        };
-        await ref.set(profile, { merge: true });
-        await db.collection('wallets').doc(user.uid).set({ balance: 0, userId: user.uid }, { merge: true });
-      }
-      closeM('loginMod');
-      closeM('regMod');
-      showT('✅ تم تسجيل الدخول بحساب Google', 'suc');
-      go('dashboard');
-    } catch (e) {
-      const messageMap = {
-        'auth/popup-closed-by-user': 'تم إغلاق نافذة Google قبل اكتمال الدخول',
-        'auth/cancelled-popup-request': 'تم إلغاء طلب تسجيل الدخول',
-        'auth/account-exists-with-different-credential': 'هذا البريد مرتبط بطريقة دخول أخرى',
-        'auth/operation-not-supported-in-this-environment': 'تسجيل Google يحتاج تشغيل الموقع عبر https أو localhost',
-        'auth/popup-blocked': 'المتصفح منع النافذة المنبثقة — اسمح بها ثم أعد المحاولة'
-      };
-      showT('تعذر تسجيل الدخول عبر Google: ' + (messageMap[e.code] || e.message || 'خطأ غير معروف'), 'err');
-    }
-  }
-  window.doGoogleLogin = doGoogleLogin;
-
-  function loadUserReportData(u) {
-    const role = u.role || 'learner';
-    const canTopup = role !== 'tutor';
-    const canWithdraw = role !== 'learner';
-    return {
-      role,
-      canTopup,
-      canWithdraw,
-      displayName: u.name || '—',
-      email: u.email || '',
-      phone: u.phone || '',
-      country: u.country || '',
-      category: u.category || '',
-      rating: Number(u.rating || 0),
-      totalReviews: Number(u.totalReviews || 0),
-      totalSessions: Number(u.totalSessions || 0),
-      isApproved: u.isApproved !== false
-    };
-  }
-
-  async function cascadeDeleteUser(uid) {
-    const batchDeleteQuery = async (col, field, value) => {
-      try {
-        const snap = await db.collection(col).where(field, '==', value).get();
-        const batch = db.batch();
-        snap.docs.forEach(doc => batch.delete(doc.ref));
-        if (!snap.empty) await batch.commit();
-      } catch (e) {
-        console.warn('cascade delete query failed', col, field, e?.message || e);
-      }
-    };
-
-    const dualDeleteQuery = async (col, fieldA, fieldB, value) => {
-      try {
-        const [sa, sb] = await Promise.all([
-          db.collection(col).where(fieldA, '==', value).get().catch(() => ({ docs: [] })),
-          db.collection(col).where(fieldB, '==', value).get().catch(() => ({ docs: [] }))
-        ]);
-        const map = new Map();
-        [...sa.docs, ...sb.docs].forEach(doc => map.set(doc.id, doc.ref));
-        const batch = db.batch();
-        [...map.values()].forEach(ref => batch.delete(ref));
-        if (map.size) await batch.commit();
-      } catch (e) {
-        console.warn('dual delete failed', col, e?.message || e);
-      }
-    };
-
-    await Promise.all([
-      db.collection('users').doc(uid).delete().catch(() => {}),
-      db.collection('wallets').doc(uid).delete().catch(() => {}),
-      db.collection('availability').doc(uid).delete().catch(() => {}),
-      batchDeleteQuery('paymentRequests', 'userId', uid),
-      batchDeleteQuery('withdrawalRequests', 'userId', uid),
-      batchDeleteQuery('transactions', 'userId', uid),
-      batchDeleteQuery('reviews', 'studentId', uid),
-      batchDeleteQuery('reviews', 'tutorId', uid),
-      dualDeleteQuery('bookings', 'studentId', 'tutorId', uid),
-      dualDeleteQuery('messages', 'senderId', 'receiverId', uid),
-      dualDeleteQuery('sessions', 'studentId', 'tutorId', uid)
-    ]);
-  }
-
-  async function safeDeleteUser(uid, btn) {
-    if (!confirm('حذف هذا الحساب نهائياً وكل بياناته من Firebase؟')) return;
-    btn && (btn.disabled = true);
-    try {
-      await cascadeDeleteUser(uid);
-      if (uid === CU?.uid) {
-        await auth.signOut().catch(() => {});
-        CP = null; CU = null; walBal = 0;
-        updNavG();
-        go('home');
-      }
-      btn?.closest('tr')?.remove();
-      showT('تم حذف الحساب وكل البيانات المرتبطة به', 'suc');
-      await loadPlatformSettings();
-    } catch (e) {
-      showT('خطأ أثناء الحذف: ' + (e.message || e), 'err');
-      if (btn) btn.disabled = false;
-    }
-  }
-  window.delU = safeDeleteUser;
-
-  async function deleteCurrentAccount() {
-    if (!CU) return;
-    if (!confirm('حذف حسابك سيحذف بياناتك من المنصة. المتابعة؟')) return;
-    await safeDeleteUser(CU.uid);
-  }
-  window.deleteCurrentAccount = deleteCurrentAccount;
-
-  function setBookingFeeFields(price) {
-    const fee = calcFee(price);
-    const total = +(Number(price || 0) + fee).toFixed(2);
-    return { fee, total };
-  }
-
-  const _openBkMod = typeof openBkMod === 'function' ? openBkMod : null;
-  window.openBkMod = function() {
-    if (_openBkMod) {
-      _openBkMod();
-      const t = curT;
-      if (!t) return;
-      const fee = calcFee(t.price);
-      const tot = +(Number(t.price || 0) + fee).toFixed(2);
-      const feeEl = document.getElementById('bkFee');
-      const totEl = document.getElementById('bkTot');
-      if (feeEl) feeEl.textContent = fee.toFixed(2) + ' ج.م';
-      if (totEl) totEl.textContent = tot.toFixed(2) + ' ج.م';
-      return;
-    }
-  };
-
-  const _confirmBk = typeof confirmBk === 'function' ? confirmBk : null;
-  window.confirmBk = async function() {
-    if (!CU || !curT) return;
-    if (!selDate || !selTime) return showT('اختر التاريخ والوقت أولاً', 'err');
-    if (!canBookTarget(curT.id)) { showT('لا يمكنك حجز جلسة مع نفسك أو معلم فقط', 'err'); closeM('bkMod'); return; }
-    const t = curT;
-    const fee = calcFee(t.price);
-    const tot = +(Number(t.price || 0) + fee).toFixed(2);
-    const noteEl = document.getElementById('bkNote');
-    const btn = document.getElementById('bkBtn');
-    if (btn) { btn.textContent = 'جاري الحجز...'; btn.disabled = true; }
-    try {
-      await db.runTransaction(async tx => {
-        const r = db.collection('wallets').doc(CU.uid);
-        const s = await tx.get(r);
-        const b = s.exists ? (s.data().balance || 0) : 0;
-        if (b < tot) throw new Error('رصيد غير كافٍ');
-        tx.set(r, { balance: b - tot, userId: CU.uid }, { merge: true });
-      });
-      const bRef = await db.collection('bookings').add({
-        studentId: CU.uid, studentName: CP?.name || CU.email,
-        studentPhone: CP?.phone || '',
-        tutorId: t.id, tutorName: t.name,
-        date: selDate, time: selTime, timeLbl: timeLbl(selTime), duration: 60,
-        price: t.price, fee, total: tot,
-        note: noteEl?.value || '',
-        status: 'pending', reviewed: false, paymentStatus: 'held',
-        adminConfirmed: false, payoutStatus: 'pending_admin',
-        createdAt: firebase.firestore.FieldValue.serverTimestamp()
-      });
-      await db.collection('transactions').add({
-        userId: CU.uid, type: 'debit', kind: 'booking', amount: tot,
-        description: `حجز جلسة مع ${t.name} — بتاريخ ${selDate} ${timeLbl(selTime)}`,
-        bookingId: bRef.id, status: 'held',
-        createdAt: firebase.firestore.FieldValue.serverTimestamp()
-      });
-      const threadId = [CU.uid, t.id].sort().join('_');
-      await db.collection('messages').add({
-        threadId, senderId: CU.uid, senderName: CP?.name || CU.email, senderPhoto: CP?.photo || '',
-        receiverId: t.id, receiverName: t.name, receiverPhoto: t.photo || '', text: `تم حجز جلسة بتاريخ ${selDate} ${timeLbl(selTime)}`,
-        read: false, sessionId: bRef.id, bookingId: bRef.id, createdAt: firebase.firestore.FieldValue.serverTimestamp()
-      });
-      await loadWal();
-      closeM('bkMod');
-      showT('✅ تم تأكيد الحجز وحجز المبلغ حتى اعتماد الإدارة', 'suc');
-      setTimeout(() => { dashTab = 'sessions'; go('dashboard'); }, 1200);
-    } catch (e) {
-      showT('خطأ: ' + (e.message || 'تعذر إكمال الحجز'), 'err');
-    } finally {
-      if (btn) { btn.textContent = 'تأكيد الحجز'; btn.disabled = false; }
-    }
-  };
-
-  const _endSession = typeof endSession === 'function' ? endSession : null;
-  window.endSession = async function() {
-    const mins = Math.floor((sesSec || 0) / 60);
-    const secs = (sesSec || 0) % 60;
-    const durStr = mins > 0 ? `${mins} دقيقة ${secs > 0 ? 'و' + secs + ' ثانية' : ''}` : `${secs} ثانية`;
-    if (!confirm(`هل تريد إنهاء الجلسة؟\nمدة الجلسة: ${durStr}`)) return;
-    if (sesTInt) clearInterval(sesTInt);
-    if (sesChatL) sesChatL();
-    if (pc) { pc.close(); pc = null; }
-    if (locSt) locSt.getTracks().forEach(t => t.stop());
-    if (scrSt) scrSt.getTracks().forEach(t => t.stop());
-    locSt = null; scrSt = null;
-
-    if (curSesBid) {
-      try {
-        const bS = await db.collection('bookings').doc(curSesBid).get();
-        const bk = bS.data();
-        await db.collection('sessions').doc(curSesBid).update({ status: 'ended', endedAt: firebase.firestore.FieldValue.serverTimestamp() }).catch(() => {});
-        await db.collection('bookings').doc(curSesBid).update({ status: 'completed', payoutStatus: 'pending_admin', adminConfirmed: false }).catch(() => {});
-        curSesBk = null;
-        curSesBk = null;
-        curSesBk = null;
-
-        document.getElementById('mainNav').style.display = '';
-        go('dashboard');
-        showT('✅ انتهت الجلسة — سيتم تحويل الأرباح فقط بعد موافقة الإدارة أو إعادة المبلغ للطالب', 'inf');
-        setTimeout(() => {
-          const ti = document.getElementById('revTutorInfo');
-          if (ti && bk?.tutorName) {
-            const stBg = ABG[(bk.studentName?.charCodeAt(0) || 0) % ABG.length] || '#fde68a';
-            ti.innerHTML = `<div style="width:42px;height:42px;border-radius:50%;background:${stBg};display:flex;align-items:center;justify-content:center;font-weight:900;font-family:'Fraunces',serif;font-size:1.1rem;flex-shrink:0">${bk.studentName?.[0] || 'ط'}</div><div><div style="font-weight:700;font-size:.9rem">${bk.studentName}</div><div style="font-size:.75rem;color:var(--muted)">طالب · ${bk.date} ${bk.time}</div></div>`;
-          }
-        }, 250);
-      } catch (e) {
-        showT('تعذر إنهاء الجلسة: ' + (e.message || e), 'err');
-      }
-    }
-  };
-
-  const _savePrf = typeof savePrf === 'function' ? savePrf : null;
-  window.prvEditAv = function() {
-    const hidden = document.getElementById('editPhotoData');
-    const url = hidden?.value || document.getElementById('editPh')?.value || '';
-    const el = document.getElementById('editAvPr');
-    if (!el) return;
-    if (url) {
-      el.classList.add('has-img');
-      el.innerHTML = `<img src="${url}" alt="profile">`;
-    } else {
-      el.classList.remove('has-img');
-      el.textContent = CP?.name?.[0] || 'أ';
-      el.style.background = CP?.color || 'var(--amber)';
-    }
-  };
-
-  window.loadEditProf = async function() {
-    if (!CP) return;
-    const p = CP;
-    const isTutor = p.role === 'tutor' || p.role === 'both' || p.role === 'admin';
-    document.getElementById('editFN').value = p.name?.split(' ')[0] || '';
-    document.getElementById('editLN').value = p.name?.split(' ').slice(1).join(' ') || '';
-    document.getElementById('editBio').value = p.bio || '';
-    document.getElementById('editCnt').value = p.country || '';
-    document.getElementById('editLng').value = p.lang || 'عربي';
-    const hidden = document.getElementById('editPhotoData');
-    const src = p.photo || '';
-    if (hidden) hidden.value = src;
-    document.getElementById('editPh').value = src;
-    prvEditAv();
-    if (isTutor) {
-      document.getElementById('editTutSec').classList.remove('hidden');
-      document.getElementById('editAvailSec').classList.remove('hidden');
-      document.getElementById('editCat').value = p.category || 'برمجة';
-      document.getElementById('editPrc').value = p.price || '';
-      document.getElementById('editExp').value = p.experience || '';
-      edSkList = Array.isArray(p.skills) ? [...p.skills] : [];
-      rdEdSk();
-      await buildEditAvGrid();
-    }
-  };
-
-  window.savePrf = async function() {
-    const first = document.getElementById('editFN').value.trim();
-    if (!first) { showT('أدخل اسمك الأول', 'err'); return; }
-    const p = CP, isTutor = p.role === 'tutor' || p.role === 'both' || p.role === 'admin';
-    const photo = document.getElementById('editPhotoData')?.value || document.getElementById('editPh').value || '';
-    const data = {
-      name: `${first} ${document.getElementById('editLN').value.trim()}`.trim(),
-      bio: document.getElementById('editBio').value,
-      country: document.getElementById('editCnt').value,
-      lang: document.getElementById('editLng').value,
-      photo
-    };
-    if (isTutor) {
-      data.category = document.getElementById('editCat').value;
-      data.price = parseFloat(document.getElementById('editPrc').value) || 0;
-      data.experience = parseInt(document.getElementById('editExp').value) || 0;
-      data.skills = edSkList;
-      data.isApproved = true;
-      const chips = document.querySelectorAll('#avGrid .avtog.on');
-      const slots = {};
-      chips.forEach(c => {
-        const d = c.dataset.day, t = c.dataset.time;
-        if (d && t) { if (!slots[d]) slots[d] = []; if (!slots[d].includes(t)) slots[d].push(t); }
-      });
-      if (Object.keys(slots).length) await db.collection('availability').doc(CU.uid).set({ tutorId: CU.uid, slots, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
-    }
-    try {
-      await db.collection('users').doc(CU.uid).update(data);
-      const freshSnap = await db.collection('users').doc(CU.uid).get();
-      if (freshSnap.exists) CP = freshSnap.data(); else CP = { ...CP, ...data };
-      updNavU();
-      await loadT();
-      showT('✅ تم حفظ الملف الشخصي بنجاح', 'suc');
-      go('dashboard');
-    } catch (e) { showT('خطأ: ' + e.message, 'err'); }
-  };
-
-  window.doReg = async function() {
-    if (CU) { showT('أنت مسجّل بالفعل، استخدم حسابك الحالي.', 'inf'); go('dashboard'); return; }
-    const email = document.getElementById('r2E').value.trim();
-    const pass = document.getElementById('r2P').value;
-    const first = document.getElementById('r2F').value.trim();
-    const last = document.getElementById('r2L').value.trim();
-    const phone = document.getElementById('r2Ph')?.value?.trim() || '';
-    const country = document.getElementById('r2Country')?.value || '';
-    const code = document.getElementById('r2Code')?.value || '';
-    const photo = document.getElementById('r2PhotoData')?.value || '';
-    const btn = document.getElementById('finRegBtn');
-    if (!first) { showT('أدخل اسمك الأول', 'err'); return; }
-    if (!email || !email.includes('@')) { showT('أدخل بريدًا إلكترونيًا صحيحًا', 'err'); return; }
-    if (!phone || phone.replace(/\D/g, '').length < 7) { showT('أدخل رقم هاتف صحيح', 'err'); return; }
-    if (!country || !code) { showT('اختر الدولة ورمز الدولة', 'err'); return; }
-    if (pass.length < 6) { showT('كلمة المرور قصيرة جداً (6 أحرف على الأقل)', 'err'); return; }
-    if (btn) { btn.textContent = 'جاري الإنشاء...'; btn.disabled = true; }
-    try {
-      const cred = await auth.createUserWithEmailAndPassword(email, pass);
-      const uid = cred.user.uid;
-      const isTutor = regRole === 'tutor' || regRole === 'both';
-      const avSlots = {};
-      document.querySelectorAll('#regAvGrid .avtog.on').forEach(el => {
-        const d = el.dataset.day, t = el.dataset.time;
-        if (d && t) { if (!avSlots[d]) avSlots[d] = []; if (!avSlots[d].includes(t)) avSlots[d].push(t); }
-      });
-      const profile = {
-        uid, email, phone: `${code} ${phone}`.trim(), country, name: `${first} ${last}`.trim(),
-        role: regRole, bio: '', photo, skills: [], price: 0,
-        lang: 'عربي', category: '', rating: 0, totalReviews: 0, totalSessions: 0,
-        isApproved: !isTutor, createdAt: firebase.firestore.FieldValue.serverTimestamp()
-      };
-      if (isTutor) {
-        profile.bio = document.getElementById('r3Bio')?.value || '';
-        profile.experience = parseInt(document.getElementById('r3Exp')?.value) || 0;
-        profile.price = parseFloat(document.getElementById('r3Prc')?.value) || 0;
-        profile.category = document.getElementById('r3Cat')?.value || '';
-        profile.lang = document.getElementById('r3Lng')?.value || 'عربي';
-        profile.skills = r3SkList;
-      }
-      const batch = db.batch();
-      batch.set(db.collection('users').doc(uid), profile);
-      batch.set(db.collection('wallets').doc(uid), { balance: 0, userId: uid });
-      if (isTutor && Object.keys(avSlots).length) {
-        batch.set(db.collection('availability').doc(uid), { tutorId: uid, slots: avSlots, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
-      }
-      await batch.commit();
-      CP = profile;
-      closeM('regMod');
-      showT(`🎉 مرحباً ${first}! تم إنشاء حسابك بنجاح.`, 'suc');
-      updNavU();
-      startMsgL();
-      await loadT();
-      go('dashboard');
-    } catch (e) {
-      const errMap = {
-        'auth/email-already-in-use': 'هذا البريد الإلكتروني مستخدم بالفعل',
-        'auth/invalid-email': 'صيغة البريد الإلكتروني غير صحيحة',
-        'auth/weak-password': 'كلمة المرور ضعيفة جداً (6 أحرف على الأقل)',
-        'auth/network-request-failed': 'تحقق من اتصالك بالإنترنت'
-      };
-      showT('خطأ: ' + (errMap[e.code] || e.message || 'تعذر إنشاء الحساب'), 'err');
-      if (btn) { btn.textContent = '🎉 إنشاء الحساب'; btn.disabled = false; }
-    }
-  };
-
-  window.submitPayment = async function() {
-    if (!CU) { openM('loginMod'); return; }
-    if (!currentUserCanTopup()) { showT('حساب المعلم لا يمكنه شحن المحفظة. يُسمح له بالسحب فقط.', 'err'); return; }
-    return (typeof _submitPayment === 'function' ? _submitPayment() : undefined);
-  };
-  const _submitPayment = typeof submitPayment === 'function' ? submitPayment : null;
-
-  window.submitWithdrawal = async function() {
-    if (!CU) { openM('loginMod'); return; }
-    if (!currentUserCanWithdraw()) { showT('حساب المتعلم لا يمكنه السحب. يُسمح له بالشحن فقط.', 'err'); return; }
-    return (typeof _submitWithdrawal === 'function' ? _submitWithdrawal() : undefined);
-  };
-  const _submitWithdrawal = typeof submitWithdrawal === 'function' ? submitWithdrawal : null;
-
-  window.loadTxList = async function() {
-    const role = CP?.role || 'learner';
-    const canTopup = role !== 'tutor';
-    const canWithdraw = role !== 'learner';
-    const topupCard = document.getElementById('topupCard');
-    const withdrawCard = document.getElementById('withdrawCard');
-    if (topupCard) topupCard.style.display = canTopup ? '' : 'none';
-    if (withdrawCard) withdrawCard.style.display = canWithdraw ? 'block' : 'none';
-    if (typeof loadWdHistory === 'function' && canWithdraw) await loadWdHistory().catch(() => {});
-    return typeof _loadTxList === 'function' ? _loadTxList() : undefined;
-  };
-  const _loadTxList = typeof loadTxList === 'function' ? loadTxList : null;
-
-  window.loadWdHistory = async function() {
-    if (!currentUserCanWithdraw()) {
-      const el = document.getElementById('wdHistory');
-      if (el) el.innerHTML = '';
-      return;
-    }
-    return typeof _loadWdHistory === 'function' ? _loadWdHistory() : undefined;
-  };
-  const _loadWdHistory = typeof loadWdHistory === 'function' ? loadWdHistory : null;
-
-  async function renderUsersTab(container) {
-    const snap = await db.collection('users').orderBy('createdAt', 'desc').get().catch(() => ({ docs: [] }));
-    const users = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-    const rMap = { learner: 'متعلم', tutor: 'معلم', both: 'الاثنان', admin: 'مدير' };
-    const rows = await Promise.all(users.map(async (u) => {
-      const w = await db.collection('wallets').doc(u.id).get().catch(() => null);
-      const balance = w?.exists ? Number(w.data().balance || 0) : 0;
-      const payments = (await db.collection('paymentRequests').where('userId', '==', u.id).get().catch(() => ({ docs: [] }))).docs.length;
-      const withdrawals = (await db.collection('withdrawalRequests').where('userId', '==', u.id).get().catch(() => ({ docs: [] }))).docs.length;
-      const bookingsStu = (await db.collection('bookings').where('studentId', '==', u.id).get().catch(() => ({ docs: [] }))).docs;
-      const bookingsTut = (await db.collection('bookings').where('tutorId', '==', u.id).get().catch(() => ({ docs: [] }))).docs;
-      const allBk = [...bookingsStu, ...bookingsTut].map(d => d.data());
-      const completed = allBk.filter(b => b.status === 'completed').length;
-      const cancelled = allBk.filter(b => ['cancelled', 'rejected'].includes(b.status)).length;
-      const pending = allBk.filter(b => ['pending', 'confirmed'].includes(b.status)).length;
-      const topupTotal = (await db.collection('transactions').where('userId', '==', u.id).get().catch(() => ({ docs: [] }))).docs
-        .map(d => d.data()).filter(tx => tx.kind === 'topup' && tx.status === 'approved').reduce((s, tx) => s + Number(tx.amount || 0), 0);
-      const withdrawTotal = (await db.collection('transactions').where('userId', '==', u.id).get().catch(() => ({ docs: [] }))).docs
-        .map(d => d.data()).filter(tx => tx.kind === 'withdrawal' && tx.status === 'approved').reduce((s, tx) => s + Number(tx.amount || 0), 0);
-      const earnings = u.role === 'learner' ? 0 : allBk.reduce((s, b) => s + Number((b.price || 0) - (b.fee || 0)), 0);
-      return `<tr>
-        <td title="${escapeHTML(u.email || '')}" style="max-width:240px;word-break:break-word;overflow-wrap:anywhere;white-space:normal">${escapeHTML(u.email || '—')}</td>
-        <td>${escapeHTML(u.name || '—')}</td>
-        <td><span class="tag ${u.role === 'tutor' ? 'tag-g' : u.role === 'admin' ? 'tag-r' : ''}">${rMap[u.role] || u.role || '—'}</span></td>
-        <td>${(u.phone || '—')}</td>
-        <td>${balance.toFixed(2)} ج.م</td>
-        <td>${u.role === 'learner' ? '—' : `${earnings.toFixed(2)} ج.م`}</td>
-        <td>${completed}</td>
-        <td>${cancelled}</td>
-        <td>${pending}</td>
-        <td>${topupTotal.toFixed(2)} ج.م</td>
-        <td>${withdrawTotal.toFixed(2)} ج.م</td>
-        <td style="white-space:nowrap">
-          <button class="btn btn-xs" style="background:var(--teal);color:#fff" onclick="downloadUserReportPdf('${u.id}')">PDF</button>
-          <button class="btn btn-xs" style="background:var(--red);color:#fff" onclick="delU('${u.id}',this)">🗑️</button>
-        </td>
-      </tr>`;
-    }));
-    container.innerHTML = `
-      <div class="card">
-        <div class="ch"><div class="ct">👥 المستخدمون</div><div class="fh">العمولة الحالية: <strong id="admPlatformCommission">${platformCommissionRate}%</strong></div></div>
-        <div class="cb" style="overflow:auto">
-          <table class="skillak-report-table">
-            <thead>
-              <tr>
-                <th>البريد</th><th>الاسم</th><th>الدور</th><th>الهاتف</th><th>الرصيد</th><th>الأرباح</th><th>المكتملة</th><th>المرفوضة</th><th>المعلقة</th><th>شحن</th><th>سحب</th><th>إجراءات</th>
-              </tr>
-            </thead>
-            <tbody>${rows.join('')}</tbody>
-          </table>
+      <div class="card" style="border-radius:18px;overflow:hidden">
+        <div class="ch"><div class="ct">سجل المعاملات</div><div class="pill pp">${txs.length} حركة</div></div>
+        <div class="cb" style="padding:0;overflow:auto;max-height:280px">
+          <table class="dtbl" style="min-width:760px"><thead><tr><th>النوع</th><th>الوصف</th><th>المبلغ</th><th>الحالة</th><th>التاريخ</th></tr></thead><tbody>
+            ${txs.map(t => `<tr><td>${t.kind || t.type || '—'}</td><td>${t.description || '—'}</td><td>${Number(t.amount || 0).toFixed(2)} ج.م</td><td>${t.status || '—'}</td><td>${t.createdAt?.toDate ? t.createdAt.toDate().toLocaleString('ar-EG') : '—'}</td></tr>`).join('')}
+          </tbody></table>
         </div>
       </div>`;
+  } catch (e) {
+    card.innerHTML = `<div style="padding:20px;color:var(--red)">تعذر تحميل التقرير: ${e.message}</div>`;
   }
+}
 
-  async function renderCommissionTab(container) {
-    container.innerHTML = `
-      <div class="card" style="max-width:760px">
-        <div class="ch"><div class="ct">📈 عمولة المنصة</div></div>
-        <div class="cb">
-          <p class="fh" style="margin-bottom:14px;line-height:1.9">غيّر نسبة العمولة من هنا، وسيتم استخدامها في الحجزات الجديدة وفي حساب الأرباح الظاهرة للمعلم والمتعلم.</p>
-          <div class="fg">
-            <label>نسبة العمولة الحالية (%)</label>
-            <input type="number" id="platformCommissionInput" min="0" max="100" step="0.1" value="${platformCommissionRate}" />
-          </div>
-          <div style="display:flex;gap:10px;flex-wrap:wrap">
-            <button class="btn btn-p" onclick="savePlatformCommission()">💾 حفظ العمولة</button>
-            <button class="btn btn-gh" onclick="loadPlatformSettings()">🔄 تحديث</button>
-          </div>
-        </div>
-      </div>`;
-  }
-
-  window.savePlatformCommission = async function() {
-    const val = parseFloat(document.getElementById('platformCommissionInput')?.value || platformCommissionRate);
-    if (!Number.isFinite(val) || val < 0 || val > 100) {
-      showT('أدخل نسبة صحيحة بين 0 و 100', 'err');
-      return;
+window.downloadAdminReportPdf = async function() {
+  const card = document.getElementById('adminReportCard');
+  if (!card) return;
+  try {
+    const canvas = await html2canvas(card, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
+    const imgData = canvas.toDataURL('image/png');
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF('p', 'mm', 'a4');
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    const imgWidth = pageWidth - 10;
+    const imgHeight = canvas.height * imgWidth / canvas.width;
+    let heightLeft = imgHeight;
+    let position = 5;
+    pdf.addImage(imgData, 'PNG', 5, position, imgWidth, imgHeight);
+    heightLeft -= (pageHeight - 10);
+    while (heightLeft > 0) {
+      pdf.addPage();
+      position = heightLeft - imgHeight + 5;
+      pdf.addImage(imgData, 'PNG', 5, position, imgWidth, imgHeight);
+      heightLeft -= (pageHeight - 10);
     }
-    await db.collection('settings').doc('platform').set({
-      commissionRate: val,
-      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-      updatedBy: CU?.uid || null
-    }, { merge: true });
-    platformCommissionRate = val;
-    const lbl = document.getElementById('admPlatformCommission');
-    if (lbl) lbl.textContent = `${val}%`;
-    showT('✅ تم حفظ عمولة المنصة', 'suc');
-    if (CP?.role === 'admin') adTab('commission', document.querySelector('.adminTab[onclick*="commission"]') || document.querySelector('.adminTab'));
-  };
-
-  window.downloadUserReportPdf = async function(uid) {
-    try {
-      const [u, wallet, pay, wd, bStu, bTut] = await Promise.all([
-        db.collection('users').doc(uid).get(),
-        db.collection('wallets').doc(uid).get().catch(() => null),
-        db.collection('paymentRequests').where('userId', '==', uid).get().catch(() => ({ docs: [] })),
-        db.collection('withdrawalRequests').where('userId', '==', uid).get().catch(() => ({ docs: [] })),
-        db.collection('bookings').where('studentId', '==', uid).get().catch(() => ({ docs: [] })),
-        db.collection('bookings').where('tutorId', '==', uid).get().catch(() => ({ docs: [] }))
-      ]);
-      if (!u.exists) return;
-      const data = u.data();
-      const role = data.role || 'learner';
-      const moneyIn = pay.docs.map(d => d.data()).filter(x => x.status === 'approved').reduce((s, x) => s + Number(x.amount || 0), 0);
-      const moneyOut = wd.docs.map(d => d.data()).filter(x => x.status === 'approved').reduce((s, x) => s + Number(x.amount || 0), 0);
-      const allBk = [...bStu.docs, ...bTut.docs].map(d => d.data());
-      const completed = allBk.filter(b => b.status === 'completed').length;
-      const pending = allBk.filter(b => ['pending', 'confirmed'].includes(b.status)).length;
-      const rejected = allBk.filter(b => ['cancelled', 'rejected'].includes(b.status)).length;
-      const earnings = role === 'learner' ? 0 : allBk.reduce((s, b) => s + Number((b.price || 0) - (b.fee || 0)), 0);
-      const balance = wallet?.exists ? Number(wallet.data().balance || 0) : 0;
-      const printable = document.createElement('div');
-      printable.style.cssText = 'direction:rtl;font-family:Cairo,Arial,sans-serif;padding:28px;color:#111;background:#fff;max-width:900px;margin:0 auto';
-      printable.innerHTML = `
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:20px;border-bottom:2px solid #0d6e75;padding-bottom:16px;margin-bottom:20px">
-          <div>
-            <div style="font-size:28px;font-weight:900;color:#0d6e75">Skillak</div>
-            <div style="font-size:13px;color:#666">تقرير مستخدم شامل — ${escapeHTML(data.name || '—')}</div>
-          </div>
-          <div style="text-align:left;font-size:12px;color:#666">
-            <div>الاسم: <strong>${escapeHTML(data.name || '—')}</strong></div>
-            <div>الدور: <strong>${roleLabel(role)}</strong></div>
-            <div>البريد: <span style="word-break:break-word;overflow-wrap:anywhere">${escapeHTML(data.email || '—')}</span></div>
-            <div>رقم الهاتف: ${escapeHTML(data.phone || '—')}</div>
-          </div>
-        </div>
-        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px">
-          <div style="border:1px solid #e5ddd0;border-radius:14px;padding:12px"><div style="font-size:12px;color:#666">الرصيد</div><div style="font-size:20px;font-weight:800;color:#0d6e75">${balance.toFixed(2)} ج.م</div></div>
-          <div style="border:1px solid #e5ddd0;border-radius:14px;padding:12px"><div style="font-size:12px;color:#666">الأرباح</div><div style="font-size:20px;font-weight:800;color:#0d6e75">${role === 'learner' ? '—' : earnings.toFixed(2) + ' ج.م'}</div></div>
-          <div style="border:1px solid #e5ddd0;border-radius:14px;padding:12px"><div style="font-size:12px;color:#666">المكتملة</div><div style="font-size:20px;font-weight:800;color:#0d6e75">${completed}</div></div>
-          <div style="border:1px solid #e5ddd0;border-radius:14px;padding:12px"><div style="font-size:12px;color:#666">المعلقة</div><div style="font-size:20px;font-weight:800;color:#0d6e75">${pending}</div></div>
-        </div>
-        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:18px">
-          <div style="border:1px solid #e5ddd0;border-radius:14px;padding:12px"><div style="font-size:12px;color:#666">الشحن</div><div style="font-size:18px;font-weight:800">${role === 'tutor' ? '—' : moneyIn.toFixed(2) + ' ج.م'}</div></div>
-          <div style="border:1px solid #e5ddd0;border-radius:14px;padding:12px"><div style="font-size:12px;color:#666">السحب</div><div style="font-size:18px;font-weight:800">${role === 'learner' ? '—' : moneyOut.toFixed(2) + ' ج.م'}</div></div>
-          <div style="border:1px solid #e5ddd0;border-radius:14px;padding:12px"><div style="font-size:12px;color:#666">المرفوضة</div><div style="font-size:18px;font-weight:800">${rejected}</div></div>
-        </div>
-        <div style="border:1px solid #e5ddd0;border-radius:14px;padding:14px">
-          <div style="font-size:15px;font-weight:800;margin-bottom:10px">ملخص الحساب</div>
-          <div style="font-size:13px;line-height:2;color:#333">
-            <div>الدولة: ${escapeHTML(data.country || '—')}</div>
-            <div>التخصص: ${escapeHTML(data.category || '—')}</div>
-            <div>التقييم: ${Number(data.rating || 0).toFixed(1)} ★</div>
-            <div>عدد التقييمات: ${Number(data.totalReviews || 0)}</div>
-            <div>عدد الجلسات: ${Number(data.totalSessions || 0)}</div>
-            <div>المتطلبات المالية: ${role === 'learner' ? 'لا يوجد سحب أو أرباح' : role === 'tutor' ? 'سحب أرباح فقط' : 'شحن وسحب بحسب الدور'}</div>
-          </div>
-        </div>`;
-      injectOnce('<div id="skillakPdfHost" style="position:fixed;inset:-99999px;opacity:0;pointer-events:none"></div>', 'skillakPdfHost');
-      const host = document.getElementById('skillakPdfHost');
-      host.innerHTML = '';
-      host.appendChild(printable);
-      await loadHtml2Pdf();
-      await html2pdf().set({
-        margin: 8,
-        filename: `${(data.name || 'Skillak_User').replace(/[\\/:*?"<>|]+/g, '_')}.pdf`,
-        image: { type: 'jpeg', quality: 0.96 },
-        html2canvas: { scale: 2, useCORS: true },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-      }).from(printable).save();
-    } catch (e) {
-      showT('تعذر إنشاء PDF: ' + (e.message || e), 'err');
-    }
-  };
-
-  async function loadHtml2Pdf() {
-    if (window.html2pdf) return;
-    await new Promise((resolve, reject) => {
-      const s = document.createElement('script');
-      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
-      s.onload = resolve;
-      s.onerror = reject;
-      document.head.appendChild(s);
-    });
+    const safeName = String(currentAdminReportName || 'Skillak-Report')
+      .replace(/[\\/:*?"<>|]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim() || 'Skillak-Report';
+    pdf.save(`Skillak-تقرير-${safeName}.pdf`);
+  } catch (e) {
+    showT('تعذر إنشاء ملف PDF: ' + e.message, 'err');
   }
+};
 
-  window.adTab = async function(tab, el) {
-    if (!_oldAdTab) return;
-    if (tab === 'commission') {
-      document.querySelectorAll('.adminTab').forEach(t => t.className = 'btn btn-gh btn-sm adminTab');
-      el.className = 'btn btn-p btn-sm adminTab';
-      const con = document.getElementById('adCon');
-      await renderCommissionTab(con);
-      return;
-    }
-    if (tab === 'users') {
-      document.querySelectorAll('.adminTab').forEach(t => t.className = 'btn btn-gh btn-sm adminTab');
-      el.className = 'btn btn-p btn-sm adminTab';
-      const con = document.getElementById('adCon');
-      con.innerHTML = '<div style="text-align:center;padding:46px"><div class="spin" style="margin:0 auto"></div></div>';
-      await renderUsersTab(con);
-      return;
-    }
-    return _oldAdTab(tab, el);
-  };
+// Improve load/save of profile photos through cropper
+const _skillakDoReg = window.doReg;
+window.doReg = async function() {
+  regPhotoData = regPhotoData || document.getElementById('r2Img')?.dataset?.cropped || '';
+  return _skillakDoReg();
+};
 
-  function injectAdminTabButtons() {
-    const holder = document.querySelector('#page-admin [style*="display:flex;gap:7px"]');
-    if (holder && !document.getElementById('admCommissionTab')) {
-      const btn = document.createElement('button');
-      btn.id = 'admCommissionTab';
-      btn.className = 'btn btn-gh btn-sm adminTab';
-      btn.textContent = '📊 العمولة';
-      btn.onclick = function(){ adTab('commission', this); };
-      holder.appendChild(btn);
-    }
+const _skillakSavePrf = window.savePrf;
+window.savePrf = async function() {
+  selectedEditPhoto = selectedEditPhoto || document.getElementById('editPh')?.value || '';
+  return _skillakSavePrf();
+};
+
+// Image picker listeners
+window.addEventListener('DOMContentLoaded', () => {
+  populateArabCountries();
+  const r2Country = document.getElementById('r2Country');
+  const r2Code = document.getElementById('r2Code');
+  if (r2Country && r2Code) {
+    r2Country.addEventListener('change', () => syncPhoneCountry('r2Country','r2Code'));
   }
+  const r2 = document.getElementById('r2Img');
+  if (r2) r2.addEventListener('change', () => handleImageInput(r2, 'reg'));
+  const ed = document.getElementById('editImg');
+  if (ed) ed.addEventListener('change', () => handleImageInput(ed, 'edit'));
+  const saveEdit = document.getElementById('editPh');
+  if (saveEdit) saveEdit.addEventListener('input', () => { selectedEditPhoto = saveEdit.value.trim(); prvEditAv(); });
+  const feeLbl = document.getElementById('bkFeeLabel');
+  if (feeLbl) feeLbl.textContent = `📊 رسوم الخدمة (${platformCommission}%)`;
+});
 
-  function injectEditPhotoFields() {
-    if (document.getElementById('editPhotoData') && document.getElementById('r2PhotoData')) return;
-    connectProfileUploads();
-  }
-
-  function patchTopupAndWalletUi() {
-    updateRoleVisibility();
-    const walletTitle = document.querySelector('#page-wallet .walwrap h1');
-    if (walletTitle) walletTitle.style.wordBreak = 'break-word';
-  }
-
-  async function initEnhancements() {
-    fillCountrySelects();
-    enhanceRegLoginUi();
-    ensureCropModal();
-    connectProfileUploads();
-    injectAdminTabButtons();
-    await loadPlatformSettings();
-    patchTopupAndWalletUi();
-    if (CP?.role) updateRoleVisibility();
-    const nav = document.getElementById('mainNav');
-    if (nav) nav.style.position = 'sticky';
-  }
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initEnhancements, { once: true });
-  } else {
-    initEnhancements();
-  }
-
-  // Re-run after auth changes to keep visibility/role UI correct.
-  const _authStateHook = auth?.onAuthStateChanged;
-  if (_authStateHook && !window.__skillakAuthHooked) {
-    window.__skillakAuthHooked = true;
-    auth.onAuthStateChanged(async (u) => {
-      await loadPlatformSettings();
-      patchTopupAndWalletUi();
-    });
-  }
-
-  window.loadPlatformSettings = loadPlatformSettings;
-  window.updateRoleVisibility = updateRoleVisibility;
-  window.calcFee = calcFee;
-})();
