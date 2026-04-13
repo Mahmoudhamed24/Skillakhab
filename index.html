@@ -1088,8 +1088,6 @@
         <div id="rS1">
           <h2 class="mtitle">إنشاء حساب جديد</h2>
           <p class="msub">اختر كيف تريد استخدام المنصة</p>
-          <button class="btn btn-o" style="width:100%;margin-bottom:12px" onclick="doGoogleLogin()">🔵 المتابعة بحساب Google</button>
-          <div style="text-align:center;color:var(--muted);font-size:.76rem;margin:6px 0 12px">أو أكمل بالبيانات اليدوية</div>
           <div class="roleg">
             <div class="ro act" id="ro-learner" onclick="pickRole('learner')"><span class="roic">📚</span>
               <div class="rotitle">متعلم</div>
@@ -1119,8 +1117,8 @@
           <div class="fg"><label>البريد الإلكتروني <span class="req">*</span></label><input type="email" id="r2E"
               placeholder="you@email.com" /></div>
           <div class="fr">
-            <div class="fg"><label>الدولة <span class="req">*</span></label><select id="r2Country" class="country-select" onchange="syncPhoneCountry('r2Country','r2Code')"><option value="">اختر الدولة</option></select></div>
-            <div class="fg"><label>رمز الدولة <span class="req">*</span></label><select id="r2Code" class="phone-code-select"><option value="">+ رمز الدولة</option></select></div>
+            <div class="fg"><label>الدولة <span class="req">*</span></label><select id="r2Country" class="country-select" onchange="syncPhoneCountry('r2Country','r2Code')"></select></div>
+            <div class="fg"><label>رمز الدولة <span class="req">*</span></label><select id="r2Code" class="phone-code-select"></select></div>
           </div>
           <div class="fg"><label>رقم الهاتف المحلي <span class="req">*</span></label><input type="tel" id="r2Ph"
               placeholder="01xxxxxxxxx" style="direction:ltr;text-align:right" /></div>
@@ -1197,7 +1195,6 @@
         <h2 class="mtitle">مرحباً بعودتك 👋</h2>
         <p class="msub">سجّل دخولك لمتابعة رحلة التعلم</p>
         <button class="btn btn-o" style="width:100%;margin-bottom:10px" onclick="doGoogleLogin()">🔵 المتابعة بحساب Google</button>
-        <div style="text-align:center;color:var(--muted);font-size:.76rem;margin:0 0 12px">يمكنك تسجيل الدخول أو المتابعة بنفس الحساب في أي وقت</div>
         <div id="loginErr" class="hidden"
           style="background:var(--red2);color:var(--red);border-radius:var(--rsm);padding:11px 15px;font-size:.84rem;font-weight:600;margin-bottom:14px;border-right:3px solid var(--red)">
         </div>
@@ -1318,7 +1315,7 @@
       <div class="mi crop-shell">
         <div class="crop-head">
           <div>
-            <h2 class="mtitle">قص وضبط الصورة</h2>
+            <h2 class="mtitle">قص الصورة</h2>
             <p class="msub">حرّك الصورة، كبّرها أو صغّرها، ثم احفظ نسخة أنيقة ومناسبة للبروفايل.</p>
           </div>
           <span class="pill pc">1:1</span>
