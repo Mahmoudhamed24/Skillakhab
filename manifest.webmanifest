@@ -1,0 +1,21 @@
+{
+  "name": "Skillak",
+  "short_name": "Skillak",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0d6e75",
+  "theme_color": "#0d6e75",
+  "icons": [
+    {
+      "src": "skillak.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "skillak.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
